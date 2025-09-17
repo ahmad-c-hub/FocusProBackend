@@ -25,25 +25,26 @@
                 <constraints nullable="false"/>
             </column>
 
-            <column name="name" type="VARCHAR(255)"/>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
 
-            <column name="dob" type="DATE"/>
+            <column name="dob" type="DATE" defaultValueComputed="CURRENT_DATE"/>
 
             <column name="consent_usage" type="BOOLEAN" defaultValueBoolean="false"/>
 
-            <column name="consent_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="consent_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP"/>
 
             <column name="focus_score" type="NUMERIC(5,2)" defaultValueNumeric="0"/>
 
             <column name="created_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
-                <constraints nullable="false"/>
             </column>
 
-            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="updated_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP"/>
 
-            <column name="last_login" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="last_login" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP"/>
 
-            <column name="deleted_at" type="TIMESTAMP WITH TIME ZONE"/>
+            <column name="deleted_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="NULL"/>
         </createTable>
 
         <!-- Auto increment for Postgres -->
