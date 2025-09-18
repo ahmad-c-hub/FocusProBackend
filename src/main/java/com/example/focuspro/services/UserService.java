@@ -2,6 +2,9 @@ package com.example.focuspro.services;
 
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.UserRepo;
+
+import javax.crypto.IllegalBlockSizeException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,9 @@ public class UserService {
             throw new IllegalArgumentException("Name cannot be empty");
         }
         if(user.getDob() == null){
+            throw new IllegalArgumentException("Date of birth cannot be empty");
+        }
+        if(user.getCreatedAt() == null){
             throw new IllegalArgumentException("Date of birth cannot be empty");
         }
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
