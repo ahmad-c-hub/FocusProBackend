@@ -1,6 +1,8 @@
 package com.example.focuspro.services;
 
+import com.example.focuspro.entities.Role;
 import com.example.focuspro.entities.Users;
+import com.example.focuspro.repos.RoleRepo;
 import com.example.focuspro.repos.UserRepo;
 
 import javax.crypto.IllegalBlockSizeException;
@@ -30,6 +32,9 @@ public class UserService {
     @Autowired
     private JWTService jwtService;
 
+    @Autowired
+    private RoleRepo roleRepo;
+
     public String register(Users user) {
         if (user.getUsername()==null || user.getEmail()==null || user.getPassword()==null || user.getName()==null || user.getDob()==null) {
             throw new IllegalArgumentException("You must fill in all the fields");
@@ -43,6 +48,8 @@ public class UserService {
         }
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
         user.setCreatedAt(java.time.OffsetDateTime.now());
+        Role role = roleRepo.findByName("ROLE_USER").orElseThrow(()->new IllegalArgumentException("Role not found"));
+        user.setRole(role);
         userRepository.save(user);
         return "User registered successfully";
     }

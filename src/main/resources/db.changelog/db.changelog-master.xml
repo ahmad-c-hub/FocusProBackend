@@ -5,5 +5,7 @@
           http://www.liquibase.org/xml/ns/dbchangelog
           https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
 
-    <include file="db.changelog/changes/001-create-users-table.xml"/>
+    <include file="changes/001-create-users-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/002-create-role-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/003-create-user-roles-table.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

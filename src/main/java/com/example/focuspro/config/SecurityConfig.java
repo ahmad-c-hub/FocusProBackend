@@ -36,6 +36,9 @@ public class SecurityConfig {
     @Autowired
     private JwtFilter jwtFilter;
 
+    @Autowired
+    private OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
@@ -57,6 +60,8 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\": \"Forbidden - You don't have permission\"}");
                         })
                 )
+                .oauth2Login(oauth -> oauth
+                        .successHandler(oAuth2LoginSuccessHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

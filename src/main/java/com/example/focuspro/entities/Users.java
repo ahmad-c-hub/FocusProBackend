@@ -62,8 +62,24 @@ public class Users implements UserDetails {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Role role = new Role();
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of();
+        return List.of(role);
     }
 }
