@@ -7,6 +7,7 @@ import com.example.focuspro.repos.UserRepo;
 
 import javax.crypto.IllegalBlockSizeException;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -76,5 +77,16 @@ public class UserService {
         } catch (AuthenticationException e) {
             throw new IllegalArgumentException(e);
         }
+    }
+
+    public String logout(HttpServletRequest request, Users userNavigating) {
+        String authHeader = request.getHeader("Authorization");
+        System.out.println("Auth Header: "+authHeader);
+        if(authHeader != null && authHeader.startsWith("Bearer ")){
+            String token = authHeader.substring(7);
+            jwtService.revokeToken(token);
+            return "Logged out successfully! ";
+        }
+        return "No token found!";
     }
 }
