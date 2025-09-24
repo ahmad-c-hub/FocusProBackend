@@ -22,7 +22,7 @@ import java.util.List;
 public class Users implements UserDetails {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // auto-increment in Postgres
+    @GeneratedValue(strategy = GenerationType.IDENTITY) 
     private int id;
 
     @Column(nullable = false, unique = true, length = 100)
