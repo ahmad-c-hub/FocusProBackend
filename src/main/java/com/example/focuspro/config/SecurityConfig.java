@@ -67,6 +67,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
                     .build();
         }
         @Bean
+        public AuthenticationProvider authenticationProvider(UserDetailsService userDetailsService) {
+            DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+            provider.setPasswordEncoder(new BCryptPasswordEncoder(12));
+            provider.setUserDetailsService(userDetailsService);
+            return provider;
+        }
+        @Bean
         public BCryptPasswordEncoder bCryptPasswordEncoder() {
             return new BCryptPasswordEncoder();
         }

@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "Book")
+@Table(name = "book")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -17,11 +17,14 @@ public class Book {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+
     private String title;
     private String author;
     private String description;
+
     private String difficulty_level;
-    private byte[] cover;
-    private byte[] audio;
+
     private String audio_length;
+
+    private String book_length;
 }

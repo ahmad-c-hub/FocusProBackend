@@ -24,11 +24,11 @@
 
             <column name="difficulty_level" type="VARCHAR(100)"/>
 
-            <column name="cover" type="BYTEA"/>
-
-            <column name="audio" type="BYTEA"/>
+            <!-- Removed cover and audio bytea fields -->
 
             <column name="audio_length" type="VARCHAR(50)"/>
+
+            <column name="book_length" type="VARCHAR(50)"/>
         </createTable>
     </changeSet>
 
