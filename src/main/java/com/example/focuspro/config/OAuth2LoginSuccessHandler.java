@@ -42,24 +42,21 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
                 .orElseThrow(() -> new RuntimeException("Default role not found"));
 
         Optional<Users> optionalUser = usersRepository.findByUsername(email);
+        Users user;
         if(optionalUser.isPresent()){
-            Users user = optionalUser.get();
-            String jwtToken = jwtService.generateToken(user.getUsername());
-            response.setContentType("application/json");
-            response.setCharacterEncoding("UTF-8");
-            response.setStatus(HttpServletResponse.SC_OK);
-            response.getWriter().write("{\"token\":\"" + jwtToken + "\"}");
-            response.getWriter().flush();
+            user = optionalUser.get();
         }else{
-            Users users = new Users();
-            users.setUsername(email);
-            users.setPassword("<PASSWORD>");
-            users.setRole(userRole);
-            users.setEmail(email);
-            users.setName("Google User");
-            users.setDob(Date.valueOf("1990-01-01"));
-            usersRepository.save(users);
+            user = new Users();
+            user.setUsername(email);
+            user.setPassword("<PASSWORD>");
+            user.setRole(userRole);
+            user.setEmail(email);
+            user.setName("Google User");
+            user.setDob(Date.valueOf("1990-01-01"));
+            usersRepository.save(user);
         }
+        String jwtToken = jwtService.generateToken(user.getUsername());
+        response.sendRedirect("http://localhost:/oauth2/redirect?token=" + jwtToken);
 
     }
 }
