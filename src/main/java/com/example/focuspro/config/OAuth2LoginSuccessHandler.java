@@ -31,32 +31,44 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     private  JWTService jwtService;
 
 
-    @Override
-    public void onAuthenticationSuccess(HttpServletRequest request,
-                                        HttpServletResponse response,
-                                        Authentication authentication) throws IOException {
-        OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
-        String email = oAuth2User.getAttribute("email");
+@Override
+public void onAuthenticationSuccess(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    Authentication authentication) throws IOException {
+    System.out.println("=== OAuth2LoginSuccessHandler START ===");
+    
+    OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
+    String email = oAuth2User.getAttribute("email");
+    System.out.println("Email: " + email);
 
-        Role userRole = roleRepo.findByName("ROLE_USER")
-                .orElseThrow(() -> new RuntimeException("Default role not found"));
+    Role userRole = roleRepo.findByName("ROLE_USER")
+            .orElseThrow(() -> new RuntimeException("Default role not found"));
+    System.out.println("Role found: " + userRole.getName());
 
-        Optional<Users> optionalUser = usersRepository.findByUsername(email);
-        Users user;
-        if(optionalUser.isPresent()){
-            user = optionalUser.get();
-        }else{
-            user = new Users();
-            user.setUsername(email);
-            user.setPassword("<PASSWORD>");
-            user.setRole(userRole);
-            user.setEmail(email);
-            user.setName("Google User");
-            user.setDob(Date.valueOf("1990-01-01"));
-            usersRepository.save(user);
-        }
-        String jwtToken = jwtService.generateToken(user.getUsername());
-        response.sendRedirect("http://localhost:/oauth2/redirect?token=" + jwtToken);
-
+    Optional<Users> optionalUser = usersRepository.findByUsername(email);
+    Users user;
+    if(optionalUser.isPresent()){
+        user = optionalUser.get();
+        System.out.println("Existing user found");
+    }else{
+        user = new Users();
+        user.setUsername(email);
+        user.setPassword("OAUTH_USER");
+        user.setRole(userRole);
+        user.setEmail(email);
+        user.setName("Google User");
+        user.setDob(Date.valueOf("1990-01-01"));
+        usersRepository.save(user);
+        System.out.println("New user created");
     }
+    
+    String jwtToken = jwtService.generateToken(user.getUsername());
+    System.out.println("JWT Token generated: " + jwtToken.substring(0, 20) + "...");
+    
+    String redirectUrl = "http://localhost:5000/#/oauth-callback?token=" + jwtToken;
+    System.out.println("Redirecting to: " + redirectUrl);
+    
+    response.sendRedirect(redirectUrl);
+    System.out.println("=== OAuth2LoginSuccessHandler END ===");
+}
 }
