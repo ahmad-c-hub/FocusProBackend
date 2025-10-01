@@ -37,7 +37,8 @@ public class UserService {
     private RoleRepo roleRepo;
 
     public String register(Users user) {
-        if (user.getUsername()==null || user.getEmail()==null || user.getPassword()==null || user.getName()==null || user.getDob()==null) {
+        if (user.getUsername() == null || user.getEmail() == null || user.getPassword() == null
+                || user.getName() == null || user.getDob() == null) {
             throw new IllegalArgumentException("You must fill in all the fields");
         }
 
@@ -49,29 +50,33 @@ public class UserService {
         }
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
         user.setCreatedAt(java.time.OffsetDateTime.now());
-        Role role = roleRepo.findByName("ROLE_USER").orElseThrow(()->new IllegalArgumentException("Role not found"));
+        user.setLastLogin(java.time.OffsetDateTime.now()); // ADD THIS
+        Role role = roleRepo.findByName("ROLE_USER").orElseThrow(() -> new IllegalArgumentException("Role not found"));
         user.setRole(role);
         userRepository.save(user);
-        return "User registered successfully";
+
+        // Generate and return JWT token instead of success message
+        return jwtService.generateToken(user.getUsername());
     }
 
     public String login(Users user1) {
         String username = user1.getUsername();
         String password = user1.getPassword();
-        if (username==null) {
+        if (username == null) {
             throw new IllegalArgumentException("Username cannot be empty");
         }
-        if (password==null) {
+        if (password == null) {
             throw new IllegalArgumentException("Password cannot be empty");
         }
-        try{
-            Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
+        try {
+            Authentication authentication = authenticationManager
+                    .authenticate(new UsernamePasswordAuthenticationToken(username, password));
             if (authentication.isAuthenticated()) {
                 Users user = userRepository.findByUsername(username).get();
                 user.setLastLogin(java.time.OffsetDateTime.now());
                 userRepository.save(user);
                 return jwtService.generateToken(username);
-            }else{
+            } else {
                 throw new IllegalArgumentException("Incorrect username or password");
             }
         } catch (AuthenticationException e) {
@@ -81,8 +86,8 @@ public class UserService {
 
     public String logout(HttpServletRequest request, Users userNavigating) {
         String authHeader = request.getHeader("Authorization");
-        System.out.println("Auth Header: "+authHeader);
-        if(authHeader != null && authHeader.startsWith("Bearer ")){
+        System.out.println("Auth Header: " + authHeader);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             jwtService.revokeToken(token);
             return "Logged out successfully! ";
