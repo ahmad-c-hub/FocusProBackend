@@ -9,4 +9,6 @@
     <include file="changes/002-create-role-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/003-create-user-roles-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/004-create-book-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/005-create-questions-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/006-create-users-questions-table.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

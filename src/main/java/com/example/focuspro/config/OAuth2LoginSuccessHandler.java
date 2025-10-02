@@ -57,7 +57,7 @@ public void onAuthenticationSuccess(HttpServletRequest request,
         user.setRole(userRole);
         user.setEmail(email);
         user.setName("Google User");
-        user.setDob(Date.valueOf("1990-01-01"));
+        user.setDob(Date.valueOf("2000-01-01"));
         usersRepository.save(user);
         System.out.println("New user created");
     }
