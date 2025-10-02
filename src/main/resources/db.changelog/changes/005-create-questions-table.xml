@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <changeSet id="005" author="ahmad">
+        <createTable tableName="questions">
+            <column name="id" type="SERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="question_text" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="option_a" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="option_b" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="option_c" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="option_d" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="correct_answer" type="VARCHAR(1)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="picture_url" type="VARCHAR(500)"/>
+
+            <column name="type" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="level" type="VARCHAR(50)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+</databaseChangeLog>
