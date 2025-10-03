@@ -15,8 +15,13 @@ public class QuestionController {
     private QuestionService questionService;
 
     @GetMapping("/test/{level}")
-    public List<QuestionDTO> getBaselineQuestions(@PathVariable String level){
+    public List<QuestionDTO> getTestQuestions(@PathVariable String level){
         return questionService.getTenQuestions(level);
+    }
+
+    @GetMapping("/test-answer/{id}")
+    public boolean checkAnswer(@PathVariable int id, @RequestParam String answer){
+        return questionService.checkAnswer(id,answer);
     }
 
 }
