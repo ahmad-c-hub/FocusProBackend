@@ -19,7 +19,5 @@ public class UserQuestion {
     @Id
     @Column(name = "question_id", nullable = false)
     private Integer questionId;
-
-    // later you can add metadata like answer, score, createdAt...
 }
 
