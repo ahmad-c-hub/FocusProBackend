@@ -34,6 +34,7 @@ public class QuestionController {
     }
     @PostMapping("/submit-test/baseline")
     public String submitBaselineTestResults(@RequestParam int score){
+        System.out.println("Score: " + score);
         return questionService.submitBaselineTestResults(score);
     }
 
