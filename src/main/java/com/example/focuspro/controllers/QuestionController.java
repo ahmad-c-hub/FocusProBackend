@@ -14,6 +14,7 @@ public class QuestionController {
     @Autowired
     private QuestionService questionService;
 
+
     @GetMapping("/test/{level}")
     public List<QuestionDTO> getTestQuestions(@PathVariable String level){
         return questionService.getTenQuestions(level);
@@ -22,6 +23,10 @@ public class QuestionController {
     @GetMapping("/test-answer/{id}")
     public boolean checkAnswer(@PathVariable int id, @RequestParam String answer){
         return questionService.checkAnswer(id,answer);
+    }
+    @PostMapping("/submit-test/baseline")
+    public String submitTestBaseline(@RequestParam int score){
+        return questionService.submitBaselineTestResults(score);
     }
 
 }
