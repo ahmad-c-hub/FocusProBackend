@@ -32,7 +32,7 @@ public class QuestionController {
     public boolean checkAnswer(@PathVariable int id, @RequestParam String answer){
         return questionService.checkAnswer(id,answer);
     }
-    @GetMapping("/submit-test/baseline")
+    @PostMapping("/submit-test/baseline")
     public String submitBaselineTestResults(@RequestParam int score){
         return questionService.submitBaselineTestResults(score);
     }
