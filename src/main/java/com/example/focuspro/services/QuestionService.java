@@ -7,7 +7,9 @@ import com.example.focuspro.entities.UserQuestionId;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.QuestionRepo;
 import com.example.focuspro.repos.UserQuestionRepo;
+import com.example.focuspro.repos.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,9 @@ public class QuestionService {
 
     @Autowired
     private UserQuestionRepo userQuestionRepo;
+
+    @Autowired
+    private UserRepo userRepo;
 
 
     public List<QuestionDTO> getTenQuestions(String level) {
@@ -73,5 +78,13 @@ public class QuestionService {
             return true;
         }
         return false;
+    }
+
+    public String submitBaselineTestResults(int score) {
+        Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        double formula = (score*10.0)/2;
+        userNavigating.setFocusScore(formula);
+        userRepo.save(userNavigating);
+        return "Your score is: " + formula + " out of 20. You have been given 10 points for your focus score.";
     }
 }
