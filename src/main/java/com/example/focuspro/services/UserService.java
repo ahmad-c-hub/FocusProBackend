@@ -94,4 +94,13 @@ public class UserService {
         }
         return "No token found!";
     }
+
+    public Users getProfile() {
+        Users userNavigating = (Users) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
+        if(optionalUser.isEmpty()){
+            throw new IllegalArgumentException("User not found.");
+        }
+        return optionalUser.get();
+    }
 }

@@ -40,4 +40,9 @@ public class UserController {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return userService.logout(request, userNavigating);
     }
+    @GetMapping("/profile")
+    public Users getProfile(){
+        return userService.getProfile();
+    }
+
 }
