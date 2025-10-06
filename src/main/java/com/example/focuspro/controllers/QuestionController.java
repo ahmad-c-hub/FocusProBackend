@@ -32,5 +32,8 @@ public class QuestionController {
     public boolean checkAnswer(@PathVariable int id, @RequestParam String answer){
         return questionService.checkAnswer(id,answer);
     }
+    public String submitBaselineTestResults(@RequestParam int score){
+        return questionService.submitBaselineTestResults(score);
+    }
 
 }
