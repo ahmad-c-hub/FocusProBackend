@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/user")
 @CrossOrigin(
         origins = {
-                "http://localhost:3400",   // React
+                "http://localhost:3000",   // React
                 "http://10.0.2.2:8080",
                 "http://localhost:5000/"     // Android emulator access
         },
