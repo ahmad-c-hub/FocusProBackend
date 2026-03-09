@@ -2,19 +2,16 @@ package com.example.focuspro.services;
 
 import com.example.focuspro.dtos.QuestionDTO;
 import com.example.focuspro.entities.Question;
-import com.example.focuspro.entities.UserQuestion;
-import com.example.focuspro.entities.UserQuestionId;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.QuestionRepo;
-import com.example.focuspro.repos.UserQuestionRepo;
 import com.example.focuspro.repos.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class QuestionService {
@@ -23,68 +20,79 @@ public class QuestionService {
     private QuestionRepo questionRepo;
 
     @Autowired
-    private UserQuestionRepo userQuestionRepo;
-
-    @Autowired
     private UserRepo userRepo;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
-    public List<QuestionDTO> getTenQuestions(String level) {
-        Users usersNavigating = (Users) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        List<Question> questions = questionRepo.getTenRandomUnansweredQuestions(level,usersNavigating.getId());
-        List<QuestionDTO> dtos = new java.util.ArrayList<>();
+
+    public List<QuestionDTO> getFirstTestQuestions(String level) {
+        Users usersNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        List<Question> questions = questionRepo.findAll();
+        List<QuestionDTO> dtos = new ArrayList<>();
         for (Question question : questions) {
-            QuestionDTO dto = new QuestionDTO(question.getId(),question.getQuestionText(),question.getOptionA(),question.getOptionB(),
-                    question.getOptionC(),question.getOptionD(),question.getCorrectAnswer(), question.getPictureUrl(),
-                    question.getType(),question.getLevel(),getPower(question.getLevel(),question.getType()));
+            QuestionDTO dto = new QuestionDTO(
+                    question.getId(),
+                    question.getQuestionText(),
+                    question.getOptionA(),
+                    question.getOptionB(),
+                    question.getOptionC(),
+                    question.getOptionD(),
+                    question.getPictureUrl(),
+                    question.getType(),
+                    question.getLevel()
+            );
             dtos.add(dto);
         }
         return dtos;
     }
 
-    public double getPower(String level, String type) {
-        double levelWeight = switch (level.toLowerCase()) {
-            case "baseline" -> 1.0;
-            case "easy"     -> 1.5;
-            case "medium"   -> 2.0;
-            case "hard"     -> 3.0;
-            default         -> 1.0;
-        };
 
-        double typeWeight = switch (type.toLowerCase()) {
-            case "stroop"      -> 1.2;
-            case "nback"       -> 1.5;
-            case "reaction"    -> 1.3;
-            case "iq_pattern"  -> 1.8;
-            case "iq_verbal"   -> 1.6;
-            case "iq_matrix"   -> 2.0;
-            default            -> 1.0;
-        };
-
-        return levelWeight * typeWeight;
-    }
-
-
-    public boolean checkAnswer(int id, String answer) {
-        Users userNavigating = (Users) org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        Optional<Question> questionOptional = questionRepo.findById(id);
-        if(questionOptional.isEmpty()){
-            throw new IllegalArgumentException("Question not correct.");
-        }
-        Question question = questionOptional.get();
-        if(question.getCorrectAnswer().equals(answer)){
-            UserQuestion userQuestion = new UserQuestion(userNavigating.getId(), id);
-            userQuestionRepo.save(userQuestion);
-            return true;
-        }
-        return false;
-    }
-
-    public String submitBaselineTestResults(int score) {
+    public void saveAnswer(int questionId, String selectedAnswer) {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        double formula = (score*10.0)/2;
-        userNavigating.setFocusScore(formula);
+
+        jdbcTemplate.update(
+                "INSERT INTO answered (user_id, question_id, selected_answer, is_correct) VALUES (?, ?, ?, ?)",
+                userNavigating.getId(),
+                questionId,
+                selectedAnswer.toUpperCase(),
+                false
+        );
+    }
+
+
+    public int getAnswerScore(String answer) {
+        return switch (answer.toUpperCase()) {
+            case "A" -> 4;
+            case "B" -> 3;
+            case "C" -> 2;
+            case "D" -> 1;
+            default -> 0;
+        };
+    }
+
+
+    public String submitBaselineTestResults(int rawScore) {
+        Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        double normalizedScore = (rawScore / 60.0) * 100.0;
+        String focusTier = getFocusTier(rawScore);
+
+        userNavigating.setFocusScore(normalizedScore);
         userRepo.save(userNavigating);
-        return "Your score is: " + formula + " out of 20. You have been given 10 points for your focus score.";
+
+        return String.format(
+                "Baseline test complete! Raw score: %d/60 | Focus score: %.1f/100 | Tier: %s",
+                rawScore, normalizedScore, focusTier
+        );
+    }
+
+
+    private String getFocusTier(int rawScore) {
+        if (rawScore >= 49) return "Focus Master";
+        if (rawScore >= 37) return "Focused Learner";
+        if (rawScore >= 25) return "Aware Learner";
+        if (rawScore >= 13) return "Distracted Mind";
+        return "Scroll Addict";
     }
 }

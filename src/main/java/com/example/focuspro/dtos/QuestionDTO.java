@@ -16,9 +16,7 @@ public class QuestionDTO {
     private String optionB;
     private String optionC;
     private String optionD;
-    private String correctAnswer;
     private String pictureUrl;
     private String type;
     private String level;
-    private double power;
 }

@@ -33,10 +33,6 @@ public class Question {
     @Column(name = "option_d", nullable = false)
     private String optionD;
 
-    // Store the correct option as "A", "B", "C", or "D"
-    @Column(name = "correct_answer", nullable = false, length = 1)
-    private String correctAnswer;
-
     // Optional picture for the question (can be null)
     @Column(name = "picture_url", length = 500)
     private String pictureUrl;
