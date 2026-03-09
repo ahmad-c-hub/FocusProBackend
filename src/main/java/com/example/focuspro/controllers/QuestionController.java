@@ -23,14 +23,14 @@ public class QuestionController {
     @Autowired
     private QuestionService questionService;
 
-    @GetMapping("/test/{level}")
-    public List<QuestionDTO> getTestQuestions(@PathVariable String level){
-        return questionService.getTenQuestions(level);
+    @GetMapping("/test")
+    public List<QuestionDTO> getFirstTestQuestions(@PathVariable String level){
+        return questionService.getFirstTestQuestions(level);
     }
 
     @GetMapping("/test-answer/{id}")
-    public boolean checkAnswer(@PathVariable int id, @RequestParam String answer){
-        return questionService.checkAnswer(id,answer);
+    public int checkAnswer(@PathVariable int id, @RequestParam String answer){
+        return questionService.getAnswerScore(answer);
     }
     @PostMapping("/submit-test/baseline")
     public String submitBaselineTestResults(@RequestParam int score){
