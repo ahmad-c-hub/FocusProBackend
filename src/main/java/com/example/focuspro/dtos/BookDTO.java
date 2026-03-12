@@ -1,20 +1,19 @@
 package com.example.focuspro.dtos;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
 public class BookDTO {
+    private Integer id;
     private String title;
     private String author;
+    private Integer level;
+    private String category;
     private String description;
     private String audioUrl;
-    private String coverUrl;
-    private String bookLength;
-    private String audioLength;
+    private String bookPagesUrl;
+    private Integer totalPages;
 }
