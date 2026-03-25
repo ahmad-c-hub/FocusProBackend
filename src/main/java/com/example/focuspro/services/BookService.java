@@ -92,12 +92,13 @@ public class BookService {
 
         jdbcTemplate.update(
                 """
-                INSERT INTO user_snippet_progress (user_id, snippet_id, completed)
-                VALUES (?, ?, true)
+                INSERT INTO user_snippet_progress (user_id, snippet_id, consumed_via, completed)
+                VALUES (?, ?, ?, true)
                 ON CONFLICT (user_id, snippet_id) DO UPDATE SET completed = true
                 """,
                 user.getId(),
-                snippetId
+                snippetId,
+                "text"
         );
     }
 
