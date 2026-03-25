@@ -15,4 +15,5 @@ public class BookSnippetDTO {
     private Integer pageNumber;
     private Integer durationSeconds;
     private Integer sequenceOrder;
+    private boolean isCompleted;
 }

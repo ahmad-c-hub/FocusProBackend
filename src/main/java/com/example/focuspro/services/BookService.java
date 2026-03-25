@@ -59,16 +59,32 @@ public class BookService {
     // ── SNIPPET METHODS ───────────────────────────────────────
 
     public List<BookSnippetDTO> getSnippetsByBookId(Integer bookId) {
+        Users user = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        List<Integer> completedIds = jdbcTemplate.queryForList(
+                "SELECT snippet_id FROM user_snippet_progress WHERE user_id = ? AND completed = true",
+                Integer.class,
+                user.getId()
+        );
+
         return bookSnippetRepo.findByBookIdOrderBySequenceOrderAsc(bookId)
                 .stream()
-                .map(this::toSnippetDTO)
+                .map(s -> toSnippetDTO(s, completedIds.contains(s.getId())))
                 .toList();
     }
 
     public BookSnippetDTO getSnippetById(Integer snippetId) {
+        Users user = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
         BookSnippet snippet = bookSnippetRepo.findById(snippetId)
                 .orElseThrow(() -> new IllegalArgumentException("Snippet not found: " + snippetId));
-        return toSnippetDTO(snippet);
+
+        boolean completed = Boolean.TRUE.equals(jdbcTemplate.queryForObject(
+                "SELECT completed FROM user_snippet_progress WHERE user_id = ? AND snippet_id = ?",
+                Boolean.class, user.getId(), snippetId
+        ));
+
+        return toSnippetDTO(snippet, completed);
     }
 
     public void markSnippetAsRead(Integer snippetId) {
@@ -102,7 +118,7 @@ public class BookService {
         );
     }
 
-    private BookSnippetDTO toSnippetDTO(BookSnippet snippet) {
+    private BookSnippetDTO toSnippetDTO(BookSnippet snippet, boolean isCompleted) {
         return new BookSnippetDTO(
                 snippet.getId(),
                 snippet.getBookId(),
@@ -111,7 +127,8 @@ public class BookService {
                 snippet.getSnippetAudioUrl(),
                 snippet.getPageNumber(),
                 snippet.getDurationSeconds(),
-                snippet.getSequenceOrder()
+                snippet.getSequenceOrder(),
+                isCompleted
         );
     }
 }
