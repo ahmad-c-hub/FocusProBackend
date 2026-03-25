@@ -28,6 +28,7 @@ public class QuestionService {
 
     public List<QuestionDTO> getFirstTestQuestions(String level) {
         Users usersNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        
         List<Question> questions = questionRepo.findAll();
         List<QuestionDTO> dtos = new ArrayList<>();
         for (Question question : questions) {

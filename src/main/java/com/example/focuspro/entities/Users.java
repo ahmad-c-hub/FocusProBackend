@@ -68,8 +68,6 @@ public class Users implements UserDetails {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id")
     )
-
-
     private Role role = new Role();
 
     public Role getRole() {
