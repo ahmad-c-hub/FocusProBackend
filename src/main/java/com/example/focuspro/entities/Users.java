@@ -62,6 +62,9 @@ public class Users implements UserDetails {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
+    @Column(name = "is_google_user")
+    private boolean isGoogleUser;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",

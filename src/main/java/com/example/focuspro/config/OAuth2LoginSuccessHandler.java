@@ -36,7 +36,7 @@ public void onAuthenticationSuccess(HttpServletRequest request,
                                     HttpServletResponse response,
                                     Authentication authentication) throws IOException {
     System.out.println("=== OAuth2LoginSuccessHandler START ===");
-    
+
     OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
     String email = oAuth2User.getAttribute("email");
     System.out.println("Email: " + email);
@@ -49,25 +49,29 @@ public void onAuthenticationSuccess(HttpServletRequest request,
     Users user;
     if(optionalUser.isPresent()){
         user = optionalUser.get();
+        user.setLastLogin(OffsetDateTime.now());
         System.out.println("Existing user found");
     }else{
         user = new Users();
-        user.setUsername(email);
+        user.setUsername(email.substring(0, email.indexOf("@")));
         user.setPassword("OAUTH_USER");
         user.setRole(userRole);
         user.setEmail(email);
-        user.setName("Google User");
+        user.setName(email.substring(0, email.indexOf("@")));
         user.setDob(Date.valueOf("2000-01-01"));
+        user.setCreatedAt(OffsetDateTime.now());
+        user.setGoogleUser(true);
+        user.setLastLogin(OffsetDateTime.now());
         usersRepository.save(user);
         System.out.println("New user created");
     }
-    
+
     String jwtToken = jwtService.generateToken(user.getUsername());
     System.out.println("JWT Token generated: " + jwtToken.substring(0, 20) + "...");
-    
+
     String redirectUrl = "http://localhost:5000/#/oauth-callback?token=" + jwtToken;
     System.out.println("Redirecting to: " + redirectUrl);
-    
+
     response.sendRedirect(redirectUrl);
     System.out.println("=== OAuth2LoginSuccessHandler END ===");
 }
