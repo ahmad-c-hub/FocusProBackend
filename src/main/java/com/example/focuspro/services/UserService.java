@@ -103,4 +103,14 @@ public class UserService {
         }
         return optionalUser.get();
     }
+
+    public void activateConsent(Users userNavigating) {
+        Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
+        if(optionalUser.isPresent()){
+            Users user = optionalUser.get();
+            user.setConsentUsage(true);
+            user.setConsentAt(java.time.OffsetDateTime.now());
+            userRepository.save(user);
+        }
+    }
 }
