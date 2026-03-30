@@ -45,7 +45,7 @@ public void onAuthenticationSuccess(HttpServletRequest request,
             .orElseThrow(() -> new RuntimeException("Default role not found"));
     System.out.println("Role found: " + userRole.getName());
 
-    Optional<Users> optionalUser = usersRepository.findByUsername(email);
+    Optional<Users> optionalUser = usersRepository.findByEmail(email);
     Users user;
     if(optionalUser.isPresent()){
         user = optionalUser.get();
