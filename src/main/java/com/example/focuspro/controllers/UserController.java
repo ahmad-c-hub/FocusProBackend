@@ -45,7 +45,7 @@ public class UserController {
         return userService.getProfile();
     }
 
-    @GetMapping("/update-profile")
+    @PutMapping("/update-profile")
     public void activateConsent(){
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.activateConsent(userNavigating);

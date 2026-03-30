@@ -111,6 +111,8 @@ public class UserService {
             user.setConsentUsage(true);
             user.setConsentAt(java.time.OffsetDateTime.now());
             userRepository.save(user);
+        }else{
+            throw new IllegalArgumentException("User not found.");
         }
     }
 }
