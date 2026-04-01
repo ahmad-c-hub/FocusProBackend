@@ -36,6 +36,9 @@ public class UserService {
     @Autowired
     private RoleRepo roleRepo;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
     public String register(Users user) {
         if (user.getUsername() == null || user.getEmail() == null || user.getPassword() == null
                 || user.getName() == null || user.getDob() == null) {
@@ -54,6 +57,7 @@ public class UserService {
         Role role = roleRepo.findByName("ROLE_USER").orElseThrow(() -> new IllegalArgumentException("Role not found"));
         user.setRole(role);
         userRepository.save(user);
+        activityLogService.log(user.getId(), "REGISTER", "New account created");
 
         // Generate and return JWT token instead of success message
         return jwtService.generateToken(user.getUsername());
@@ -75,6 +79,7 @@ public class UserService {
                 Users user = userRepository.findByUsername(username).get();
                 user.setLastLogin(java.time.OffsetDateTime.now());
                 userRepository.save(user);
+                activityLogService.log(user.getId(), "LOGIN", "User logged in");
                 return jwtService.generateToken(username);
             } else {
                 throw new IllegalArgumentException("Incorrect username or password");

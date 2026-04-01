@@ -25,6 +25,9 @@ public class DiagnosticService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
 
     public List<DiagnosticQuestionDTO> getAllQuestions() {
         List<DiagnosticQuestion> questions = diagnosticQuestionRepo.findAllByOrderByDisplayOrderAsc();
@@ -81,6 +84,14 @@ public class DiagnosticService {
         // 3. Update user's focus score
         user.setFocusScore(request.getFocusScore());
         userRepo.save(user);
+
+        activityLogService.log(
+                user.getId(),
+                "DIAGNOSTIC_COMPLETE",
+                String.format("Completed diagnostic assessment. Focus score: %.1f/100", request.getFocusScore()),
+                String.format("{\"focusScore\":%.1f,\"rawTotal\":%.1f,\"tier\":\"%s\"}",
+                        request.getFocusScore(), request.getRawTotal(), getFocusTier(request.getRawTotal()))
+        );
 
         return String.format(
                 "Diagnostic complete! Focus score: %.1f/100 | Tier: %s",
