@@ -25,6 +25,9 @@ public class QuestionService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
 
     public List<QuestionDTO> getFirstTestQuestions(String level) {
         Users usersNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -81,6 +84,14 @@ public class QuestionService {
 
         userNavigating.setFocusScore(normalizedScore);
         userRepo.save(userNavigating);
+
+        activityLogService.log(
+                userNavigating.getId(),
+                "BASELINE_TEST_COMPLETE",
+                String.format("Completed baseline test. Score: %d/60, Focus: %.1f/100", rawScore, normalizedScore),
+                String.format("{\"rawScore\":%d,\"focusScore\":%.1f,\"tier\":\"%s\"}",
+                        rawScore, normalizedScore, getFocusTier(rawScore))
+        );
 
         return String.format(
                 "Baseline test complete! Raw score: %d/60 | Focus score: %.1f/100 | Tier: %s",
