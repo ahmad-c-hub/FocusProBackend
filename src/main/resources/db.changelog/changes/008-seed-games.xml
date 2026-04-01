@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="008-seed-games" author="ahmad">
+
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">SELECT COUNT(*) FROM games</sqlCheck>
+        </preConditions>
+
+        <insert tableName="games">
+            <column name="title"                   value="Memory Matrix"/>
+            <column name="type"                    value="memory_matrix"/>
+            <column name="description"             value="A grid lights up with a pattern — memorise it, then recreate it from memory. Patterns grow harder as you level up."/>
+            <column name="level"                   valueNumeric="1"/>
+            <column name="difficulty"              value="medium"/>
+            <column name="target_duration_seconds" valueNumeric="120"/>
+            <column name="created_at"              valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at"              valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+
+        <insert tableName="games">
+            <column name="title"                   value="Sudoku"/>
+            <column name="type"                    value="sudoku"/>
+            <column name="description"             value="Fill every row, column and 3x3 box with the digits 1-9. No repeats allowed. Choose Easy, Medium or Hard."/>
+            <column name="level"                   valueNumeric="1"/>
+            <column name="difficulty"              value="hard"/>
+            <column name="target_duration_seconds" valueNumeric="600"/>
+            <column name="created_at"              valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at"              valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+
+        <rollback>
+            <delete tableName="games">
+                <where>type IN ('memory_matrix', 'sudoku')</where>
+            </delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
