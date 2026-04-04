@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="009-create-focus-rooms-table" author="abd">
+
+        <createTable tableName="focus_rooms">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="name" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="emoji" type="VARCHAR(10)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_by" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+
+        <addAutoIncrement tableName="focus_rooms"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <rollback>
+            <dropTable tableName="focus_rooms"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
