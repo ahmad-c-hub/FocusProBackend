@@ -1,5 +1,6 @@
 package com.example.focuspro.controllers;
 
+import com.example.focuspro.dtos.CompleteProfileRequest;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,6 +50,12 @@ public class UserController {
     public void activateConsent(){
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.activateConsent(userNavigating);
+    }
+
+    @PutMapping("/complete-profile")
+    public void completeProfile(@RequestBody CompleteProfileRequest request){
+        Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        userService.completeProfile(userNavigating, request);
     }
 
 }

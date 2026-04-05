@@ -1,5 +1,6 @@
 package com.example.focuspro.services;
 
+import com.example.focuspro.dtos.CompleteProfileRequest;
 import com.example.focuspro.entities.Role;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.RoleRepo;
@@ -8,6 +9,7 @@ import com.example.focuspro.repos.UserRepo;
 import javax.crypto.IllegalBlockSizeException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.Date;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -72,6 +74,13 @@ public class UserService {
         if (password == null) {
             throw new IllegalArgumentException("Password cannot be empty");
         }
+        // Block Google-authenticated accounts from the password login endpoint.
+        // Their password column holds an unusable random BCrypt hash — they must use Google Sign-In.
+        Optional<Users> existingUser = userRepository.findByUsername(username);
+        if (existingUser.isPresent() && existingUser.get().isGoogleUser()) {
+            throw new IllegalArgumentException("This account uses Google Sign-In. Please log in with Google.");
+        }
+
         try {
             Authentication authentication = authenticationManager
                     .authenticate(new UsernamePasswordAuthenticationToken(username, password));
@@ -107,6 +116,21 @@ public class UserService {
             throw new IllegalArgumentException("User not found.");
         }
         return optionalUser.get();
+    }
+
+    /// Called when a Google user fills in their missing profile info.
+    public void completeProfile(Users userNavigating, CompleteProfileRequest request) {
+        Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
+        if (optionalUser.isEmpty()) throw new IllegalArgumentException("User not found.");
+        Users user = optionalUser.get();
+        if (request.getDob() != null && !request.getDob().isBlank()) {
+            user.setDob(Date.valueOf(request.getDob()));
+        }
+        if (request.getName() != null && !request.getName().isBlank()) {
+            user.setName(request.getName());
+        }
+        userRepository.save(user);
+        activityLogService.log(user.getId(), "PROFILE_COMPLETE", "User completed their profile");
     }
 
     public void activateConsent(Users userNavigating) {
