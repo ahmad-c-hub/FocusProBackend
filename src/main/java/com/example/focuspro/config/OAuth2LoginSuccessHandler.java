@@ -9,26 +9,33 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.sql.Date;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     @Autowired
-    private  UserRepo usersRepository;
+    private UserRepo usersRepository;
 
     @Autowired
     private RoleRepo roleRepo;
 
     @Autowired
-    private  JWTService jwtService;
+    private JWTService jwtService;
+
+    // BCryptPasswordEncoder is stateless — no Spring dependency — so we create it
+    // directly here instead of injecting it. Injecting it would cause a circular
+    // dependency: OAuth2LoginSuccessHandler → BCryptPasswordEncoder bean → SecurityConfig
+    // → OAuth2LoginSuccessHandler.
+    private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
 
 @Override
@@ -54,11 +61,14 @@ public void onAuthenticationSuccess(HttpServletRequest request,
     }else{
         user = new Users();
         user.setUsername(email.substring(0, email.indexOf("@")));
-        user.setPassword("OAUTH_USER");
+        // Store a hashed random token — never a readable plain-text string.
+        // This means the password column is always a proper BCrypt hash,
+        // and no one can guess or reuse this value to log in via the password endpoint.
+        user.setPassword(bCryptPasswordEncoder.encode("GOOGLE_OAUTH_" + UUID.randomUUID()));
         user.setRole(userRole);
         user.setEmail(email);
         user.setName(email.substring(0, email.indexOf("@")));
-        user.setDob(Date.valueOf("2000-01-01"));
+        // DOB intentionally left null — the app will prompt the user to complete their profile.
         user.setCreatedAt(OffsetDateTime.now());
         user.setGoogleUser(true);
         user.setLastLogin(OffsetDateTime.now());
