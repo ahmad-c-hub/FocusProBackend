@@ -5,6 +5,7 @@ import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.RoleRepo;
 import com.example.focuspro.repos.UserRepo;
 import com.example.focuspro.services.JWTService;
+import com.example.focuspro.services.OAuthCodeStore;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,9 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
     @Autowired
     private JWTService jwtService;
+
+    @Autowired
+    private OAuthCodeStore oAuthCodeStore;
 
     // BCryptPasswordEncoder is stateless — no Spring dependency — so we create it
     // directly here instead of injecting it. Injecting it would cause a circular
@@ -79,7 +83,10 @@ public void onAuthenticationSuccess(HttpServletRequest request,
     String jwtToken = jwtService.generateToken(user.getUsername());
     System.out.println("JWT Token generated: " + jwtToken.substring(0, 20) + "...");
 
-    String redirectUrl = "http://localhost:5000/#/oauth-callback?token=" + jwtToken;
+    // Store the token server-side and redirect with a short-lived one-time code.
+    // This prevents the real JWT from appearing in browser history or server logs.
+    String code = oAuthCodeStore.store(jwtToken);
+    String redirectUrl = "http://localhost:5000/#/oauth-callback?code=" + code;
     System.out.println("Redirecting to: " + redirectUrl);
 
     response.sendRedirect(redirectUrl);
