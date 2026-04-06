@@ -2,9 +2,11 @@ package com.example.focuspro.controllers;
 
 import com.example.focuspro.dtos.CompleteProfileRequest;
 import com.example.focuspro.entities.Users;
+import com.example.focuspro.services.OAuthCodeStore;
 import com.example.focuspro.services.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +26,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private OAuthCodeStore oAuthCodeStore;
 
 
     @PostMapping("/register")
@@ -56,6 +61,19 @@ public class UserController {
     public void completeProfile(@RequestBody CompleteProfileRequest request){
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.completeProfile(userNavigating, request);
+    }
+
+    /**
+     * Exchanges a short-lived one-time OAuth code (received via redirect URL) for the real JWT.
+     * The code expires in 60 seconds and is deleted on first use.
+     */
+    @GetMapping("/oauth/token")
+    public ResponseEntity<String> exchangeOAuthCode(@RequestParam String code) {
+        String jwt = oAuthCodeStore.exchange(code);
+        if (jwt == null) {
+            return ResponseEntity.badRequest().body("Invalid or expired code");
+        }
+        return ResponseEntity.ok(jwt);
     }
 
 }
