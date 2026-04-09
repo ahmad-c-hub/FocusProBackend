@@ -13,4 +13,5 @@
     <include file="changes/006-create-users-questions-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/008-seed-games.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-create-focus-rooms-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/010-update-diagnostic-questions.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
