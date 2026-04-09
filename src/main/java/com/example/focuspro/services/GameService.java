@@ -29,8 +29,14 @@ public class GameService {
     private ActivityLogService activityLogService;
 
     public GameResultResponse submitResult(GameResultSubmitRequest request, Users user) {
+        // Use a synthetic fallback so unknown game types never crash the endpoint.
         Game game = gameRepo.findByType(request.getGameType())
-                .orElseThrow(() -> new IllegalArgumentException("Unknown game type: " + request.getGameType()));
+                .orElseGet(() -> {
+                    Game g = new Game();
+                    g.setTitle(request.getGameType());
+                    g.setType(request.getGameType());
+                    return g;
+                });
 
         double focusScoreGained = calculateFocusScoreGained(request);
 
@@ -78,6 +84,9 @@ public class GameService {
             case "number_stream" ->
                 // Score-based, capped at 4 pts
                 Math.min(4.0, req.getScore() / 150.0);
+            case "color_match" ->
+                // 100 pts per correct answer + streak bonus → 1000 pts ≈ +5 focus pts (capped)
+                Math.min(5.0, req.getScore() / 200.0);
             default -> 0.0;
         };
     }
@@ -101,6 +110,19 @@ public class GameService {
             case "number_stream" ->
                     String.format("Played Number Stream — Score: %d, Level: %d, Mistakes: %d",
                             req.getScore(), req.getLevelReached(), req.getMistakes());
+            case "color_match" -> {
+                String diffLabel = switch (req.getLevelReached()) {
+                    case 1  -> "Easy";
+                    case 2  -> "Medium";
+                    case 3  -> "Hard";
+                    default -> "Medium";
+                };
+                yield req.isCompleted()
+                        ? String.format("Finished Color Match (%s) — Score: %d, Accuracy: %d%%",
+                                diffLabel, req.getScore(), accuracyPct(req))
+                        : String.format("Played Color Match (%s) — Score: %d, Mistakes: %d",
+                                diffLabel, req.getScore(), req.getMistakes());
+            }
             default -> "Played " + game.getTitle();
         };
     }
@@ -120,5 +142,13 @@ public class GameService {
         int min = totalSeconds / 60;
         int sec = totalSeconds % 60;
         return String.format("%d:%02d", min, sec);
+    }
+
+    /** Estimates accuracy % from score and mistakes (color_match: 100 pts base per correct). */
+    private int accuracyPct(GameResultSubmitRequest req) {
+        int correct = req.getScore() / 100; // rough lower-bound (ignores streak bonus)
+        int total   = correct + req.getMistakes();
+        if (total == 0) return 0;
+        return (int) Math.round(correct * 100.0 / total);
     }
 }

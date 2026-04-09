@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <!-- Insert train_of_thought if not already present -->
+    <changeSet id="010-seed-train-of-thought" author="ahmad">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM games WHERE type = 'train_of_thought'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="games">
+            <column name="title"                   value="Train of Thought"/>
+            <column name="type"                    value="train_of_thought"/>
+            <column name="description"             value="Trains speed toward stations — tap junctions to switch the tracks and route each train to its matching colored station before it crashes."/>
+            <column name="level"                   valueNumeric="1"/>
+            <column name="difficulty"              value="medium"/>
+            <column name="target_duration_seconds" valueNumeric="180"/>
+            <column name="created_at"              valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at"              valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+        <rollback>
+            <delete tableName="games"><where>type = 'train_of_thought'</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- Insert number_stream if not already present -->
+    <changeSet id="010-seed-number-stream" author="ahmad">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM games WHERE type = 'number_stream'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="games">
+            <column name="title"                   value="Number Stream"/>
+            <column name="type"                    value="number_stream"/>
+            <column name="description"             value="Equations fall from the top of the screen. Solve them before they hit the bottom — speed and accuracy both count."/>
+            <column name="level"                   valueNumeric="1"/>
+            <column name="difficulty"              value="medium"/>
+            <column name="target_duration_seconds" valueNumeric="180"/>
+            <column name="created_at"              valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at"              valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+        <rollback>
+            <delete tableName="games"><where>type = 'number_stream'</where></delete>
+        </rollback>
+    </changeSet>
+
+    <!-- Insert color_match if not already present -->
+    <changeSet id="010-seed-color-match" author="ahmad">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM games WHERE type = 'color_match'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="games">
+            <column name="title"                   value="Color Match"/>
+            <column name="type"                    value="color_match"/>
+            <column name="description"             value="Tap the button whose ink color matches the word — not what the word says. Classic Stroop attention challenge."/>
+            <column name="level"                   valueNumeric="1"/>
+            <column name="difficulty"              value="medium"/>
+            <column name="target_duration_seconds" valueNumeric="45"/>
+            <column name="created_at"              valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at"              valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+        <rollback>
+            <delete tableName="games"><where>type = 'color_match'</where></delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
