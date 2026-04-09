@@ -103,6 +103,7 @@ public class UserService {
         System.out.println("Auth Header: " + authHeader);
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
+            activityLogService.log(userNavigating.getId(), "LOGOUT", "User logged out");
             jwtService.revokeToken(token);
             return "Logged out successfully! ";
         }
