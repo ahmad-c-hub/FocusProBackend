@@ -72,6 +72,12 @@ public class GameService {
                 req.isCompleted()
                         ? Math.max(0.5, 3.0 - (req.getMistakes() * 0.5))
                         : 0.0;
+            case "train_of_thought" ->
+                // Each correct train routed = 0.5 pts, capped at 5
+                Math.min(5.0, (req.getScore() / 100.0) * 0.5);
+            case "number_stream" ->
+                // Score-based, capped at 4 pts
+                Math.min(4.0, req.getScore() / 150.0);
             default -> 0.0;
         };
     }
@@ -86,6 +92,15 @@ public class GameService {
                             ? String.format("Completed Sudoku — Time: %s, Mistakes: %d",
                                     formatTime(req.getTimePlayedSeconds()), req.getMistakes())
                             : "Started a Sudoku game";
+            case "train_of_thought" ->
+                    req.isCompleted()
+                            ? String.format("Completed Train of Thought — Level: %d, Score: %d",
+                                    req.getLevelReached(), req.getScore())
+                            : String.format("Played Train of Thought — Level: %d, Score: %d",
+                                    req.getLevelReached(), req.getScore());
+            case "number_stream" ->
+                    String.format("Played Number Stream — Score: %d, Level: %d, Mistakes: %d",
+                            req.getScore(), req.getLevelReached(), req.getMistakes());
             default -> "Played " + game.getTitle();
         };
     }

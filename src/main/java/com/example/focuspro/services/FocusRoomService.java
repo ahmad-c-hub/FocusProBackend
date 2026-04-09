@@ -25,6 +25,9 @@ public class FocusRoomService {
     @Autowired
     private UserRepo userRepo;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
     // roomId -> (username -> member info)
     // ConcurrentHashMap is thread-safe — multiple users join at the same time
     private final Map<Long, Map<String, RoomMemberDTO>> presence = new ConcurrentHashMap<>();
@@ -66,6 +69,13 @@ public class FocusRoomService {
         room.setEmoji(request.getEmoji() != null ? request.getEmoji() : "🎯");
         room.setCreatedBy(creatorUsername);
         roomRepo.save(room);
+
+        userRepo.findByUsername(creatorUsername).ifPresent(user ->
+                activityLogService.log(user.getId(), "FOCUS_ROOM_CREATED",
+                        "Created focus room: " + room.getName(),
+                        String.format("{\"roomId\":%d,\"roomName\":\"%s\"}", room.getId(), room.getName()))
+        );
+
         return new FocusRoomDTO(room.getId(), room.getName(), room.getEmoji(),
                 room.getCreatedBy(), 0, new ArrayList<>());
     }
@@ -90,6 +100,15 @@ public class FocusRoomService {
         // presence is a ConcurrentHashMap; computeIfAbsent is atomic
         presence.computeIfAbsent(roomId, k -> new ConcurrentHashMap<>())
                 .put(username, member);
+
+        roomRepo.findById(roomId).ifPresent(room ->
+                userOpt.ifPresent(user ->
+                        activityLogService.log(user.getId(), "FOCUS_ROOM_JOINED",
+                                "Joined focus room: " + room.getName(),
+                                String.format("{\"roomId\":%d,\"roomName\":\"%s\",\"goal\":\"%s\"}",
+                                        roomId, room.getName(), goal != null ? goal : ""))
+                )
+        );
 
         return new ArrayList<>(presence.get(roomId).values());
     }

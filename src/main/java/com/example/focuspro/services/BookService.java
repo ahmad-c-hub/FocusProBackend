@@ -27,6 +27,9 @@ public class BookService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
 
     // ── BOOK METHODS ──────────────────────────────────────────
 
@@ -100,6 +103,25 @@ public class BookService {
                 snippetId,
                 "text"
         );
+
+        // Log the activity — resolve snippet + book title for a meaningful description
+        try {
+            bookSnippetRepo.findById(snippetId).ifPresent(snippet -> {
+                String bookTitle = bookRepo.findById(snippet.getBookId())
+                        .map(b -> b.getTitle())
+                        .orElse("Unknown Book");
+                activityLogService.log(
+                        user.getId(),
+                        "BOOK_SNIPPET_READ",
+                        String.format("Read \"%s\" from %s", snippet.getSnippetTitle(), bookTitle),
+                        String.format("{\"snippetId\":%d,\"bookId\":%d,\"bookTitle\":\"%s\",\"snippetTitle\":\"%s\"}",
+                                snippetId, snippet.getBookId(), bookTitle, snippet.getSnippetTitle())
+                );
+            });
+        } catch (Exception e) {
+            // Never let logging break the main flow
+            System.err.println("[ActivityLog] Failed to log BOOK_SNIPPET_READ: " + e.getMessage());
+        }
     }
 
 

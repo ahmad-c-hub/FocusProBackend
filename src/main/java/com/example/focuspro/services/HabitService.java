@@ -24,6 +24,9 @@ public class HabitService {
     @Autowired
     private HabitLogRepo habitLogRepo;
 
+    @Autowired
+    private ActivityLogService activityLogService;
+
     // ── GET all habits for a user ─────────────────────────────────────────────
     public List<HabitDTO> getHabits(int userId) {
         return habitRepo.findByUserId(userId)
@@ -38,6 +41,9 @@ public class HabitService {
         habit.setUserId(userId);
         applyRequest(habit, req);
         habit = habitRepo.save(habit);
+        activityLogService.log(userId, "HABIT_CREATED",
+                "Created habit: " + habit.getTitle(),
+                String.format("{\"habitId\":%d,\"title\":\"%s\"}", habit.getId(), habit.getTitle()));
         return toDTO(habit, userId);
     }
 
@@ -48,6 +54,9 @@ public class HabitService {
                         HttpStatus.NOT_FOUND, "Habit not found"));
         applyRequest(habit, req);
         habit = habitRepo.save(habit);
+        activityLogService.log(userId, "HABIT_UPDATED",
+                "Updated habit: " + habit.getTitle(),
+                String.format("{\"habitId\":%d,\"title\":\"%s\"}", habit.getId(), habit.getTitle()));
         return toDTO(habit, userId);
     }
 
@@ -56,7 +65,11 @@ public class HabitService {
         Habit habit = habitRepo.findByIdAndUserId(habitId, userId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Habit not found"));
+        String title = habit.getTitle();
         habitRepo.delete(habit);
+        activityLogService.log(userId, "HABIT_DELETED",
+                "Deleted habit: " + title,
+                String.format("{\"habitId\":%d,\"title\":\"%s\"}", habitId, title));
     }
 
     // ── LOG (upsert today's habit_log) ────────────────────────────────────────
@@ -83,6 +96,13 @@ public class HabitService {
             log.setTimeSpentMinutes(req.getTimeSpentMinutes());
         }
         habitLogRepo.save(log);
+
+        if (req.isCompleted()) {
+            activityLogService.log(userId, "HABIT_COMPLETED",
+                    "Completed habit: " + habit.getTitle(),
+                    String.format("{\"habitId\":%d,\"title\":\"%s\",\"date\":\"%s\"}",
+                            habitId, habit.getTitle(), today));
+        }
 
         return toDTO(habit, userId);
     }
