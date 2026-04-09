@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+         http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <!--
+        Migration 010 — Replace diagnostic questions with scientifically
+        validated versions.
+
+        Scientific sources:
+          Screen Habits : SAS-SV (Kwon et al., 2013, PLOS ONE)
+                          BSMAS  (Andreassen et al., 2016, Psychological Reports)
+                          Pre-sleep screen use (Chang et al., 2015, PNAS)
+          Attention     : ASRS-v1.1 (Kessler et al., 2005, Psych. Medicine / WHO)
+                          CFQ (Broadbent et al., 1982, J. Experimental Psychology)
+                          Attentional switching cost (Rogers & Monsell, 1995)
+                          Prose Recall (Daneman & Carpenter, 1980)
+          Lifestyle     : PSQI (Buysse et al., 1989, Psychiatry Research)
+                          WHO Physical Activity Guidelines (2020)
+                          Circadian regularity (Saksvik-Lehouillier et al., 2013)
+          Learning      : NCS (Cacioppo & Petty, 1982, JPSP)
+                          Forgetting Curve (Ebbinghaus, 1885)
+                          Spaced repetition (Cepeda et al., 2006)
+                          Flow theory (Csikszentmihalyi, 1990)
+    -->
+
+    <changeSet id="010" author="focuspro">
+
+        <!-- ── SCREEN HABITS — Q1 (SAS-SV Item 1) ─────────────────────── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How often do you use your phone for longer than you originally intended?"/>
+            <column name="option_a" value="Rarely or never"/>
+            <column name="option_b" value="Sometimes"/>
+            <column name="option_c" value="Often"/>
+            <column name="option_d" value="Almost always"/>
+            <column name="points_a" valueNumeric="4"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 1</where>
+        </update>
+
+        <!-- ── SCREEN HABITS — Q2 (BSMAS Withdrawal dimension) ───────── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How often do you feel restless or uncomfortable when you cannot check your phone?"/>
+            <column name="option_a" value="Never — I feel no urge"/>
+            <column name="option_b" value="Occasionally"/>
+            <column name="option_c" value="Often"/>
+            <column name="option_d" value="Almost always — I feel anxious without it"/>
+            <column name="points_a" valueNumeric="4"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 2</where>
+        </update>
+
+        <!-- ── SCREEN HABITS — Q3 (Chang et al., 2015, PNAS) ─────────── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How often do you use your phone within the hour before sleeping?"/>
+            <column name="option_a" value="Never"/>
+            <column name="option_b" value="Occasionally, less than 30 minutes"/>
+            <column name="option_c" value="Most nights, for 30+ minutes"/>
+            <column name="option_d" value="Every night, for over an hour"/>
+            <column name="points_a" valueNumeric="4"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 3</where>
+        </update>
+
+        <!-- ── SCREEN HABITS — Q4 (BSMAS Salience; Drouin et al., 2012) ─ -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How often do you check your phone even without receiving a notification?"/>
+            <column name="option_a" value="Rarely — only when expecting something"/>
+            <column name="option_b" value="A few times a day"/>
+            <column name="option_c" value="Every hour or so"/>
+            <column name="option_d" value="Constantly — it is almost automatic"/>
+            <column name="points_a" valueNumeric="4"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 4</where>
+        </update>
+
+        <!-- ── ATTENTION — Q5 (Prose Recall — Daneman & Carpenter, 1980) ─ -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="Reading comprehension task — read the passage and answer the questions that follow."/>
+            <column name="option_a" value="Answered all questions correctly"/>
+            <column name="option_b" value="Answered most questions correctly"/>
+            <column name="option_c" value="Answered some questions correctly"/>
+            <column name="option_d" value="Struggled to recall the passage"/>
+            <column name="points_a" valueNumeric="5"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 5</where>
+        </update>
+
+        <!-- ── ATTENTION — Q6 (Just & Carpenter, 1992 — working memory) ── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="Working memory task — read the passage and tap each time you re-read a sentence."/>
+            <column name="option_a" value="Read it once with no re-reads"/>
+            <column name="option_b" value="Re-read 1 to 2 sentences"/>
+            <column name="option_c" value="Re-read 3 to 4 sentences"/>
+            <column name="option_d" value="Re-read 5 or more sentences"/>
+            <column name="points_a" valueNumeric="5"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 6</where>
+        </update>
+
+        <!-- ── ATTENTION — Q7 (ASRS-v1.1 Item 2 — Kessler et al., 2005) ─ -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How often do you have difficulty sustaining attention during long or repetitive tasks?"/>
+            <column name="option_a" value="Rarely — I stay on task easily"/>
+            <column name="option_b" value="Sometimes — I drift but recover"/>
+            <column name="option_c" value="Often — it disrupts my work"/>
+            <column name="option_d" value="Almost always — I can rarely stay on task"/>
+            <column name="points_a" valueNumeric="5"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 7</where>
+        </update>
+
+        <!-- ── ATTENTION — Q8 (CFQ Distractibility — Broadbent et al., 1982) -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How often do you find your mind wandering when you are trying to concentrate on something?"/>
+            <column name="option_a" value="Rarely — I can redirect focus easily"/>
+            <column name="option_b" value="Sometimes — requires some effort"/>
+            <column name="option_c" value="Often — it disrupts my concentration"/>
+            <column name="option_d" value="Almost always — I struggle to stay present"/>
+            <column name="points_a" valueNumeric="5"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 8</where>
+        </update>
+
+        <!-- ── ATTENTION — Q9 (Rogers & Monsell, 1995 — switching cost) ── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="After a period of scrolling or switching between apps, how hard is it to return to focused work?"/>
+            <column name="option_a" value="Easy — I refocus almost immediately"/>
+            <column name="option_b" value="A few minutes to settle back in"/>
+            <column name="option_c" value="15 to 30 minutes before I feel focused again"/>
+            <column name="option_d" value="I struggle to regain focus for an extended period"/>
+            <column name="points_a" valueNumeric="5"/>
+            <column name="points_b" valueNumeric="3"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 9</where>
+        </update>
+
+        <!-- ── LIFESTYLE — Q10 (PSQI — Buysse et al., 1989) ─────────── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How would you rate the quality of your sleep on most nights?"/>
+            <column name="option_a" value="Very good — I wake up feeling refreshed"/>
+            <column name="option_b" value="Fairly good — mostly rested"/>
+            <column name="option_c" value="Fairly poor — I often feel tired during the day"/>
+            <column name="option_d" value="Very poor — I rarely feel rested"/>
+            <column name="points_a" valueNumeric="3"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 10</where>
+        </update>
+
+        <!-- ── LIFESTYLE — Q11 (WHO Physical Activity Guidelines, 2020) ── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How many days per week do you engage in at least 30 minutes of moderate physical activity?"/>
+            <column name="option_a" value="5 or more days"/>
+            <column name="option_b" value="3 to 4 days"/>
+            <column name="option_c" value="1 to 2 days"/>
+            <column name="option_d" value="Rarely or never"/>
+            <column name="points_a" valueNumeric="3"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 11</where>
+        </update>
+
+        <!-- ── LIFESTYLE — Q12 (Saksvik-Lehouillier et al., 2013) ──────── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How consistent is your daily schedule (wake time, meals, work hours)?"/>
+            <column name="option_a" value="Very consistent — I follow a structured daily routine"/>
+            <column name="option_b" value="Mostly consistent with occasional variation"/>
+            <column name="option_c" value="Quite inconsistent — my schedule varies a lot"/>
+            <column name="option_d" value="No real routine — each day is unpredictable"/>
+            <column name="points_a" valueNumeric="3"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 12</where>
+        </update>
+
+        <!-- ── LEARNING — Q13 (NCS — Cacioppo & Petty, 1982) ─────────── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="When you encounter a mentally challenging problem, what is your first reaction?"/>
+            <column name="option_a" value="I engage with it — I enjoy the mental effort"/>
+            <column name="option_b" value="I work through it when I need to"/>
+            <column name="option_c" value="I prefer to find an easier approach"/>
+            <column name="option_d" value="I avoid it and look for someone else to solve it"/>
+            <column name="points_a" valueNumeric="3"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 13</where>
+        </update>
+
+        <!-- ── LEARNING — Q14 (Ebbinghaus, 1885; Cepeda et al., 2006) ─── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How well do you typically remember something new you learned a few days later?"/>
+            <column name="option_a" value="Very well — I retain most details"/>
+            <column name="option_b" value="Fairly well — I remember the key points"/>
+            <column name="option_c" value="Poorly — I forget most of it quickly"/>
+            <column name="option_d" value="Barely at all — it fades within hours"/>
+            <column name="points_a" valueNumeric="3"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 14</where>
+        </update>
+
+        <!-- ── LEARNING — Q15 (Csikszentmihalyi, 1990; Newport, 2016) ─── -->
+        <update tableName="diagnostic_question">
+            <column name="question_text"
+                    value="How comfortable are you spending 60+ minutes on a single task without switching?"/>
+            <column name="option_a" value="Very comfortable — I prefer long deep work sessions"/>
+            <column name="option_b" value="Comfortable — I can do it when needed"/>
+            <column name="option_c"
+                    value="Uncomfortable — I feel the urge to switch after a short time"/>
+            <column name="option_d"
+                    value="Very difficult — I regularly break off to do other things"/>
+            <column name="points_a" valueNumeric="3"/>
+            <column name="points_b" valueNumeric="2"/>
+            <column name="points_c" valueNumeric="1"/>
+            <column name="points_d" valueNumeric="0"/>
+            <where>display_order = 15</where>
+        </update>
+
+    </changeSet>
+
+</databaseChangeLog>
