@@ -12,15 +12,12 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/book")
-@CrossOrigin(
-        origins = {
-                "http://localhost:3000",
-                "http://10.0.2.2:8080",
-                "http://localhost:5000/"
-        },
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS}
-)
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "http://10.0.2.2:8080",
+        "http://https://focuspro-fm2d.onrender.com/"
+}, allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE,
+        RequestMethod.OPTIONS })
 public class BookController {
 
     @Autowired
@@ -32,7 +29,7 @@ public class BookController {
         return bookService.getAllBooks();
     }
 
-    // GET /book/recommended/{level}  (level = 1, 2, 3)
+    // GET /book/recommended/{level} (level = 1, 2, 3)
     @GetMapping("/recommended/{level}")
     public List<BookDTO> getBooksByDifficulty(@PathVariable Integer level) {
         return bookService.getBooksByDifficulty(level);
@@ -44,7 +41,7 @@ public class BookController {
         return bookService.getBookByTitle(title);
     }
 
-    // POST /book/add-book  (admin only)
+    // POST /book/add-book (admin only)
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/add-book")
     public BookDTO addBook(@RequestBody Book book) {

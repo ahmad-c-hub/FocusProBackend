@@ -9,31 +9,29 @@ import java.util.List;
 
 @RequestMapping("/question")
 @RestController
-@CrossOrigin(
-        origins = {
-                "http://localhost:3000",   // React
-                "http://10.0.2.2:8080",
-                "http://localhost:5000/"    
-        },
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS}
-)
+@CrossOrigin(origins = {
+        "http://localhost:3000", // React
+        "http://10.0.2.2:8080",
+        "http://https://focuspro-fm2d.onrender.com/"
+}, allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE,
+        RequestMethod.OPTIONS })
 public class QuestionController {
 
     @Autowired
     private QuestionService questionService;
 
     @GetMapping("/test")
-    public List<QuestionDTO> getFirstTestQuestions(@PathVariable String level){
+    public List<QuestionDTO> getFirstTestQuestions(@PathVariable String level) {
         return questionService.getFirstTestQuestions(level);
     }
 
     @GetMapping("/test-answer/{id}")
-    public int checkAnswer(@PathVariable int id, @RequestParam String answer){
+    public int checkAnswer(@PathVariable int id, @RequestParam String answer) {
         return questionService.getAnswerScore(answer);
     }
+
     @PostMapping("/submit-test/baseline")
-    public String submitBaselineTestResults(@RequestParam int score){
+    public String submitBaselineTestResults(@RequestParam int score) {
         System.out.println("Score: " + score);
         return questionService.submitBaselineTestResults(score);
     }

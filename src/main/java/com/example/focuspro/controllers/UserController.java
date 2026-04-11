@@ -12,15 +12,12 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/user")
-@CrossOrigin(
-        origins = {
-                "http://localhost:3000",   // React
-                "http://10.0.2.2:8080",
-                "http://localhost:5000"     // Android emulator access
-        },
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS}
-)
+@CrossOrigin(origins = {
+        "http://localhost:3000", // React
+        "http://10.0.2.2:8080",
+        "http://https://focuspro-fm2d.onrender.com" // Android emulator access
+}, allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE,
+        RequestMethod.OPTIONS })
 
 public class UserController {
 
@@ -30,41 +27,42 @@ public class UserController {
     @Autowired
     private OAuthCodeStore oAuthCodeStore;
 
-
     @PostMapping("/register")
-    public String register(@RequestBody Users user){
+    public String register(@RequestBody Users user) {
         return userService.register(user);
     }
 
     @PostMapping("/login")
-    public String login(@RequestBody Users user){
+    public String login(@RequestBody Users user) {
         return userService.login(user);
     }
 
     @PostMapping("/logout")
-    public String logout(HttpServletRequest request){
+    public String logout(HttpServletRequest request) {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return userService.logout(request, userNavigating);
     }
+
     @GetMapping("/profile")
-    public Users getProfile(){
+    public Users getProfile() {
         return userService.getProfile();
     }
 
     @PutMapping("/update-profile")
-    public void activateConsent(){
+    public void activateConsent() {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.activateConsent(userNavigating);
     }
 
     @PutMapping("/complete-profile")
-    public void completeProfile(@RequestBody CompleteProfileRequest request){
+    public void completeProfile(@RequestBody CompleteProfileRequest request) {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.completeProfile(userNavigating, request);
     }
 
     /**
-     * Exchanges a short-lived one-time OAuth code (received via redirect URL) for the real JWT.
+     * Exchanges a short-lived one-time OAuth code (received via redirect URL) for
+     * the real JWT.
      * The code expires in 60 seconds and is deleted on first use.
      */
     @GetMapping("/oauth/token")
