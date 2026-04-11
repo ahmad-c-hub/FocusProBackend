@@ -12,7 +12,7 @@ import java.util.List;
 @CrossOrigin(origins = {
         "http://localhost:3000", // React
         "http://10.0.2.2:8080",
-        "http://https://focuspro-fm2d.onrender.com/"
+        "https://focuspro-fm2d.onrender.com/"
 }, allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE,
         RequestMethod.OPTIONS })
 public class QuestionController {

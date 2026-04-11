@@ -87,7 +87,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         // Store the token server-side and redirect with a short-lived one-time code.
         // This prevents the real JWT from appearing in browser history or server logs.
         String code = oAuthCodeStore.store(jwtToken);
-        String redirectUrl = "http://https://focuspro-fm2d.onrender.com/#/oauth-callback?code=" + code;
+        String redirectUrl = "https://focuspro-fm2d.onrender.com/#/oauth-callback?code=" + code;
         System.out.println("Redirecting to: " + redirectUrl);
 
         response.sendRedirect(redirectUrl);

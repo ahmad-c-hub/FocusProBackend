@@ -17,7 +17,7 @@ import java.util.List;
 @CrossOrigin(origins = {
         "http://localhost:3000",
         "http://10.0.2.2:8080",
-        "http://https://focuspro-fm2d.onrender.com",
+        "https://focuspro-fm2d.onrender.com",
         "http://localhost:8080"
 }, allowedHeaders = "*", methods = {
         RequestMethod.GET,

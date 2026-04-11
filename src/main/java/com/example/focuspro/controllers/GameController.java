@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = {
         "http://localhost:3000",
         "http://10.0.2.2:8080",
-        "http://https://focuspro-fm2d.onrender.com"
+        "https://focuspro-fm2d.onrender.com"
 }, allowedHeaders = "*", methods = { RequestMethod.POST, RequestMethod.OPTIONS })
 public class GameController {
 
