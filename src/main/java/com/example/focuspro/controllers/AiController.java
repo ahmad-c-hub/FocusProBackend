@@ -3,21 +3,18 @@ package com.example.focuspro.controllers;
 import com.example.focuspro.dtos.*;
 import com.example.focuspro.services.AiService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/ai")
-@CrossOrigin(origins = {
-        "http://localhost:3000",
-        "http://10.0.2.2:8080",
-        "https://focuspro-fm2d.onrender.com/"
-}, allowedHeaders = "*", methods = {
-        RequestMethod.GET, RequestMethod.POST,
-        RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS
-})
 public class AiController {
 
     @Autowired
