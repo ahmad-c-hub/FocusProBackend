@@ -16,7 +16,7 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOrigins(List.of(
-                "http://https://focuspro-fm2d.onrender.com",
+                "https://focuspro-fm2d.onrender.com",
                 "http://localhost:3000",
                 "https://focuspro-frontend.onrender.com" // replace with your actual Render frontend URL
         ));
