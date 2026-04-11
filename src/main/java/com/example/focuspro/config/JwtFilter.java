@@ -37,10 +37,18 @@ public class JwtFilter extends OncePerRequestFilter {
             token = authHeader.substring(7);
             if (jwtService.isTokenRevoked(token)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.getWriter().write("Token has been revoked! Please login again.");
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\": \"Token has been revoked. Please login again.\"}");
                 return;
             }
-            username = jwtService.extractUserName(token);
+            try {
+                username = jwtService.extractUserName(token);
+            } catch (Exception e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\": \"Invalid or expired token. Please login again.\"}");
+                return;
+            }
         }
 
         if(username!=null && SecurityContextHolder.getContext().getAuthentication()==null){
