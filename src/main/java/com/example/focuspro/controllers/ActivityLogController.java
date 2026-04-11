@@ -11,15 +11,11 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/activity")
-@CrossOrigin(
-        origins = {
-                "http://localhost:3000",
-                "http://10.0.2.2:8080",
-                "http://localhost:5000"
-        },
-        allowedHeaders = "*",
-        methods = {RequestMethod.GET, RequestMethod.OPTIONS}
-)
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "http://10.0.2.2:8080",
+        "http://https://focuspro-fm2d.onrender.com"
+}, allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.OPTIONS })
 public class ActivityLogController {
 
     @Autowired

@@ -43,11 +43,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
                     config.setAllowedOrigins(List.of(
-                            "http://localhost:5000",
+                            "http://https://focuspro-fm2d.onrender.com",
                             "http://localhost:3000",
-                            "https://focuspro-frontend.onrender.com"
-                    ));
-                    config.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS","PATCH"));
+                            "https://focuspro-frontend.onrender.com"));
+                    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
                     config.setAllowedHeaders(List.of("*"));
                     config.setAllowCredentials(true);
                     return config;
@@ -56,7 +55,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/user/login", "/user/register", "/user/logout", "/user/oauth/token", "/oauth2/**").permitAll()
+                        .requestMatchers("/user/login", "/user/register", "/user/logout", "/user/oauth/token",
+                                "/oauth2/**")
+                        .permitAll()
                         // ── NEW: allow WebSocket upgrade handshake ──────────────────
                         .requestMatchers("/ws/**").permitAll()
                         // ───────────────────────────────────────────────────────────
@@ -73,8 +74,7 @@ public class SecurityConfig {
                             response.getWriter().write("{\"error\": \"Forbidden - You don't have permission\"}");
                         }))
                 .oauth2Login(oauth -> oauth
-                        .successHandler(oAuth2LoginSuccessHandler)
-                        )
+                        .successHandler(oAuth2LoginSuccessHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();

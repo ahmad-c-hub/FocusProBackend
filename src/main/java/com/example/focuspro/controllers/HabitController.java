@@ -14,22 +14,18 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/habits")
-@CrossOrigin(
-        origins = {
-                "http://localhost:3000",
-                "http://10.0.2.2:8080",
-                "http://localhost:5000",
-                "http://localhost:8080"
-        },
-        allowedHeaders = "*",
-        methods = {
-                RequestMethod.GET,
-                RequestMethod.POST,
-                RequestMethod.PUT,
-                RequestMethod.DELETE,
-                RequestMethod.OPTIONS
-        }
-)
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "http://10.0.2.2:8080",
+        "http://https://focuspro-fm2d.onrender.com",
+        "http://localhost:8080"
+}, allowedHeaders = "*", methods = {
+        RequestMethod.GET,
+        RequestMethod.POST,
+        RequestMethod.PUT,
+        RequestMethod.DELETE,
+        RequestMethod.OPTIONS
+})
 public class HabitController {
 
     @Autowired
@@ -65,7 +61,7 @@ public class HabitController {
         habitService.deleteHabit(user.getId(), id);
     }
 
-    // POST /habits/{id}/log  — upserts today's habit_log row
+    // POST /habits/{id}/log — upserts today's habit_log row
     @PostMapping("/{id}/log")
     public HabitDTO logHabit(@PathVariable int id, @RequestBody HabitLogRequest req) {
         Users user = currentUser();
