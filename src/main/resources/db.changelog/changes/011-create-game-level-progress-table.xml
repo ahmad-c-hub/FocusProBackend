@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="011-create-game-level-progress-table" author="ahmad">
+
+        <createTable tableName="game_level_progress">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="INT">
+                <constraints nullable="false"
+                             foreignKeyName="fk_glp_user"
+                             references="users(id)"/>
+            </column>
+            <column name="game_type" type="VARCHAR(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="max_unlocked_level" type="INT" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP"/>
+        </createTable>
+
+        <!-- One row per (user, game) pair -->
+        <addUniqueConstraint
+                tableName="game_level_progress"
+                columnNames="user_id, game_type"
+                constraintName="uq_glp_user_game"/>
+
+        <createIndex tableName="game_level_progress"
+                     indexName="idx_glp_user_id">
+            <column name="user_id"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="game_level_progress"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

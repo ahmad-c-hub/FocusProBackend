@@ -1,10 +1,13 @@
 package com.example.focuspro.services;
 
+import com.example.focuspro.dtos.GameLevelProgressDTO;
 import com.example.focuspro.dtos.GameResultResponse;
 import com.example.focuspro.dtos.GameResultSubmitRequest;
 import com.example.focuspro.entities.Game;
+import com.example.focuspro.entities.GameLevelProgress;
 import com.example.focuspro.entities.GameResult;
 import com.example.focuspro.entities.Users;
+import com.example.focuspro.repos.GameLevelProgressRepo;
 import com.example.focuspro.repos.GameRepo;
 import com.example.focuspro.repos.GameResultRepo;
 import com.example.focuspro.repos.UserRepo;
@@ -12,6 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class GameService {
@@ -26,7 +32,21 @@ public class GameService {
     private UserRepo userRepo;
 
     @Autowired
+    private GameLevelProgressRepo gameLevelProgressRepo;
+
+    @Autowired
     private ActivityLogService activityLogService;
+
+    /** Games that use the level roadmap and their max levels. */
+    private static final Set<String> LEVEL_GAMES =
+            Set.of("memory_matrix", "number_stream", "pattern_trail", "train_of_thought");
+
+    private static final java.util.Map<String, Integer> MAX_LEVELS = java.util.Map.of(
+            "memory_matrix",    10,
+            "number_stream",    10,
+            "pattern_trail",    10,
+            "train_of_thought",  5
+    );
 
     public GameResultResponse submitResult(GameResultSubmitRequest request, Users user) {
         // Use a synthetic fallback so unknown game types never crash the endpoint.
@@ -55,6 +75,11 @@ public class GameService {
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
 
+        // Update level progress for roadmap games
+        if (LEVEL_GAMES.contains(request.getGameType()) && request.getLevelReached() > 0) {
+            upsertLevelProgress(user.getId(), request.getGameType(), request.getLevelReached());
+        }
+
         activityLogService.log(
                 user.getId(),
                 "GAME_PLAYED",
@@ -64,6 +89,37 @@ public class GameService {
 
         return new GameResultResponse(focusScoreGained, newFocusScore,
                 "Result saved! +" + String.format("%.1f", focusScoreGained) + " focus pts");
+    }
+
+    /** Upserts max unlocked level — only ever increases, never decreases. */
+    private void upsertLevelProgress(int userId, String gameType, int levelReached) {
+        int maxLevel = MAX_LEVELS.getOrDefault(gameType, 1);
+        int clamped  = Math.max(1, Math.min(levelReached, maxLevel));
+        gameLevelProgressRepo.findByUserIdAndGameType(userId, gameType)
+                .ifPresentOrElse(
+                        p -> {
+                            if (clamped > p.getMaxUnlockedLevel()) {
+                                p.setMaxUnlockedLevel(clamped);
+                                p.setUpdatedAt(LocalDateTime.now());
+                                gameLevelProgressRepo.save(p);
+                            }
+                        },
+                        () -> {
+                            GameLevelProgress p = new GameLevelProgress();
+                            p.setUserId(userId);
+                            p.setGameType(gameType);
+                            p.setMaxUnlockedLevel(clamped);
+                            p.setUpdatedAt(LocalDateTime.now());
+                            gameLevelProgressRepo.save(p);
+                        }
+                );
+    }
+
+    /** Returns all level-progress records for the user (roadmap games only). */
+    public List<GameLevelProgressDTO> getLevelProgress(int userId) {
+        return gameLevelProgressRepo.findByUserId(userId).stream()
+                .map(p -> new GameLevelProgressDTO(p.getGameType(), p.getMaxUnlockedLevel()))
+                .collect(Collectors.toList());
     }
 
     // ── Focus score formulas ───────────────────────────────────────────────────
