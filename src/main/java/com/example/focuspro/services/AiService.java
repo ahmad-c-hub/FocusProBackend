@@ -506,6 +506,75 @@ public class AiService {
         );
     }
 
+    // ── 5. Snippet question history ─────────────────────────────────────────────
+
+    /**
+     * Returns one entry per snippet where AI questions were generated for this user.
+     * Each entry includes book + snippet info and the latest attempt result (PASSED/FAILED/null).
+     */
+    public List<SnippetHistoryItemDTO> getQuestionHistory() {
+        Users user = currentUser();
+
+        // Aggregate one row per snippet
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList("""
+                SELECT
+                  aq.snippet_id,
+                  bs.snippet_title,
+                  b.id          AS book_id,
+                  b.title       AS book_title,
+                  COUNT(aq.id)  AS question_count,
+                  MIN(aq.created_at) AS created_at
+                FROM ai_generated_questions aq
+                JOIN book_snippets bs ON bs.id = aq.snippet_id
+                JOIN books b         ON b.id  = bs.book_id
+                WHERE aq.user_id = ?
+                  AND aq.question_type = 'SNIPPET'
+                GROUP BY aq.snippet_id, bs.snippet_title, b.id, b.title
+                ORDER BY MIN(aq.created_at) DESC
+                """, user.getId());
+
+        List<SnippetHistoryItemDTO> result = new ArrayList<>();
+        for (Map<String, Object> row : rows) {
+            int snippetId = ((Number) row.get("snippet_id")).intValue();
+
+            // Look up the latest attempt outcome from activity logs
+            String attemptResult = resolveAttemptResult(user.getId(), snippetId);
+
+            result.add(new SnippetHistoryItemDTO(
+                    snippetId,
+                    (String) row.get("snippet_title"),
+                    ((Number) row.get("book_id")).intValue(),
+                    (String) row.get("book_title"),
+                    ((Number) row.get("question_count")).intValue(),
+                    attemptResult,
+                    row.get("created_at") instanceof java.sql.Timestamp t
+                            ? t.toLocalDateTime()
+                            : null
+            ));
+        }
+        return result;
+    }
+
+    private String resolveAttemptResult(int userId, int snippetId) {
+        try {
+            // Check for pass first (latest log for this snippet)
+            List<Map<String, Object>> logs = jdbcTemplate.queryForList("""
+                    SELECT activity_type FROM activity_logs
+                    WHERE user_id = ?
+                      AND activity_type IN ('AI_COMPREHENSION_PASSED', 'AI_COMPREHENSION_FAILED')
+                      AND activity_description LIKE ?
+                    ORDER BY activity_date DESC
+                    LIMIT 1
+                    """, userId, "%snippet " + snippetId + "%");
+
+            if (logs.isEmpty()) return null;
+            String type = (String) logs.get(0).get("activity_type");
+            return "AI_COMPREHENSION_PASSED".equals(type) ? "PASSED" : "FAILED";
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private Users currentUser() {
         return (Users) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
