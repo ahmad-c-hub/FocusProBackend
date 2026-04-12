@@ -69,6 +69,11 @@ public class JWTService {
         return extractExpiration(token).before(new Date());
     }
 
+    // Public wrapper for diagnostic logging in JwtFilter
+    public boolean isTokenExpiredPublic(String token) {
+        return isTokenExpired(token);
+    }
+
     private Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }
