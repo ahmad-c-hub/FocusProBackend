@@ -1,8 +1,13 @@
 package com.example.focuspro.controllers;
 
 import com.example.focuspro.dtos.*;
+import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.AiService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +24,16 @@ public class AiController {
 
     @Autowired
     private AiService aiService;
+
+    // ── Diagnostic ping — call this to verify auth works for /ai/** ───────────
+    @GetMapping("/ping")
+    public Map<String, Object> ping(@AuthenticationPrincipal Users user) {
+        return Map.of(
+                "status", "auth OK",
+                "username", user.getUsername(),
+                "userId", user.getId()
+        );
+    }
 
     // ── Snippet comprehension ─────────────────────────────────────────────────
 
@@ -75,5 +90,18 @@ public class AiController {
     @PostMapping("/retention/submit")
     public RetentionTestResponse submitRetentionTest(@RequestBody AiAnswerRequest request) {
         return aiService.submitRetentionTest(request.getAnswers());
+    }
+
+    // ── Exception handler — catches AI API failures so they return 503 not 500 ─
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<Map<String, String>> handleAiError(RuntimeException ex) {
+        System.err.println("[AiController] Error: " + ex.getMessage());
+        String msg = ex.getMessage() != null ? ex.getMessage() : "AI service error";
+        if (msg.contains("AI API call failed") || msg.contains("Anthropic API call failed")) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(Map.of("error", "AI service temporarily unavailable. Please try again.", "detail", msg));
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", msg));
     }
 }
