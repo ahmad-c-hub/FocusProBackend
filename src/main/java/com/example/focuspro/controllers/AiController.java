@@ -1,6 +1,7 @@
 package com.example.focuspro.controllers;
 
 import com.example.focuspro.dtos.*;
+import com.example.focuspro.dtos.SnippetHistoryItemDTO;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.AiService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +63,19 @@ public class AiController {
             @PathVariable Integer snippetId,
             @RequestBody AiAnswerRequest request) {
         return aiService.submitSnippetAnswers(snippetId, request.getAnswers());
+    }
+
+    // ── Question history ──────────────────────────────────────────────────────
+
+    /**
+     * Returns one entry per snippet where AI questions were generated for the caller.
+     * Each entry carries book/snippet info + the latest attempt outcome (PASSED/FAILED/null).
+     *
+     * GET /ai/history
+     */
+    @GetMapping("/history")
+    public List<SnippetHistoryItemDTO> getQuestionHistory() {
+        return aiService.getQuestionHistory();
     }
 
     // ── Retention audit ───────────────────────────────────────────────────────
