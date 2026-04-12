@@ -368,27 +368,44 @@ public class AiService {
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
-        try {
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(aiApiUrl, entity, String.class);
+        int maxAttempts = 3;
+        int delayMs     = 2000; // 2 s → 4 s → give up
+        Exception lastException = null;
 
-            JsonNode root = objectMapper.readTree(response.getBody());
-            JsonNode choice = root.path("choices").get(0);
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                ResponseEntity<String> response =
+                        restTemplate.postForEntity(aiApiUrl, entity, String.class);
 
-            // Guard against truncated responses
-            String finishReason = choice.path("finish_reason").asText("");
-            if ("length".equals(finishReason)) {
-                throw new RuntimeException("AI response was truncated (finish_reason=length). Increase max_tokens.");
+                JsonNode root = objectMapper.readTree(response.getBody());
+                JsonNode choice = root.path("choices").get(0);
+
+                // Guard against truncated responses
+                String finishReason = choice.path("finish_reason").asText("");
+                if ("length".equals(finishReason)) {
+                    throw new RuntimeException("AI response was truncated (finish_reason=length). Increase max_tokens.");
+                }
+
+                // OpenAI-compatible response: choices[0].message.content
+                String text = choice.path("message").path("content").asText();
+                return stripMarkdownFences(text);
+
+            } catch (Exception e) {
+                lastException = e;
+                boolean isRetryable = e.getMessage() != null &&
+                        (e.getMessage().contains("503") || e.getMessage().contains("UNAVAILABLE")
+                         || e.getMessage().contains("429") || e.getMessage().contains("RESOURCE_EXHAUSTED"));
+
+                if (!isRetryable || attempt == maxAttempts) break;
+
+                try { Thread.sleep((long) delayMs * attempt); } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
             }
-
-            // OpenAI-compatible response: choices[0].message.content
-            String text = choice.path("message").path("content").asText();
-
-            return stripMarkdownFences(text);
-
-        } catch (Exception e) {
-            throw new RuntimeException("AI API call failed: " + e.getMessage(), e);
         }
+
+        throw new RuntimeException("AI API call failed: " + lastException.getMessage(), lastException);
     }
 
     /** Used only when ai.use.anthropic.format=true (Claude direct API). */
