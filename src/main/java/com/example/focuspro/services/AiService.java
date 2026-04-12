@@ -537,8 +537,8 @@ public class AiService {
         for (Map<String, Object> row : rows) {
             int snippetId = ((Number) row.get("snippet_id")).intValue();
 
-            // Look up the latest attempt outcome from activity logs
-            String attemptResult = resolveAttemptResult(user.getId(), snippetId);
+            // Look up the latest attempt outcome + score from activity logs
+            Object[] details = resolveAttemptDetails(user.getId(), snippetId);
 
             result.add(new SnippetHistoryItemDTO(
                     snippetId,
@@ -546,7 +546,9 @@ public class AiService {
                     ((Number) row.get("book_id")).intValue(),
                     (String) row.get("book_title"),
                     ((Number) row.get("question_count")).intValue(),
-                    attemptResult,
+                    (String)  details[0],
+                    (Integer) details[1],
+                    (Integer) details[2],
                     row.get("created_at") instanceof java.sql.Timestamp t
                             ? t.toLocalDateTime()
                             : null
@@ -555,11 +557,15 @@ public class AiService {
         return result;
     }
 
-    private String resolveAttemptResult(int userId, int snippetId) {
+    /**
+     * Returns [attemptResult, correctCount, totalCount].
+     * attemptResult is "PASSED", "FAILED", or null.
+     * correctCount/totalCount are parsed from the activity log description (e.g. "2/3 correct").
+     */
+    private Object[] resolveAttemptDetails(int userId, int snippetId) {
         try {
-            // Check for pass first (latest log for this snippet)
             List<Map<String, Object>> logs = jdbcTemplate.queryForList("""
-                    SELECT activity_type FROM activity_logs
+                    SELECT activity_type, activity_description FROM activity_logs
                     WHERE user_id = ?
                       AND activity_type IN ('AI_COMPREHENSION_PASSED', 'AI_COMPREHENSION_FAILED')
                       AND activity_description LIKE ?
@@ -567,11 +573,28 @@ public class AiService {
                     LIMIT 1
                     """, userId, "%snippet " + snippetId + "%");
 
-            if (logs.isEmpty()) return null;
-            String type = (String) logs.get(0).get("activity_type");
-            return "AI_COMPREHENSION_PASSED".equals(type) ? "PASSED" : "FAILED";
+            if (logs.isEmpty()) return new Object[]{null, null, null};
+
+            String type   = (String) logs.get(0).get("activity_type");
+            String desc   = (String) logs.get(0).get("activity_description");
+            String result = "AI_COMPREHENSION_PASSED".equals(type) ? "PASSED" : "FAILED";
+
+            // Parse "N/M" from descriptions like:
+            //   "Passed snippet 5 — 2/3 correct, +1.0 pts"
+            //   "Failed snippet 5 — only 2/3 correct"
+            Integer correct = null, total = null;
+            if (desc != null) {
+                java.util.regex.Matcher m =
+                        java.util.regex.Pattern.compile("(\\d+)/(\\d+)").matcher(desc);
+                if (m.find()) {
+                    correct = Integer.parseInt(m.group(1));
+                    total   = Integer.parseInt(m.group(2));
+                }
+            }
+
+            return new Object[]{result, correct, total};
         } catch (Exception e) {
-            return null;
+            return new Object[]{null, null, null};
         }
     }
 

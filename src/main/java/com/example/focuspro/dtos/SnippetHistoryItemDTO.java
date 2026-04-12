@@ -15,6 +15,12 @@ public class SnippetHistoryItemDTO {
     /** "PASSED", "FAILED", or null if the user generated questions but never submitted answers. */
     private String  attemptResult;
 
+    /** How many questions the user answered correctly (null if never submitted). */
+    private Integer correctCount;
+
+    /** Total questions in the submitted attempt (null if never submitted). */
+    private Integer totalCount;
+
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 
@@ -23,6 +29,7 @@ public class SnippetHistoryItemDTO {
     public SnippetHistoryItemDTO(Integer snippetId, String snippetTitle,
                                   Integer bookId, String bookTitle,
                                   int questionCount, String attemptResult,
+                                  Integer correctCount, Integer totalCount,
                                   LocalDateTime createdAt) {
         this.snippetId     = snippetId;
         this.snippetTitle  = snippetTitle;
@@ -30,6 +37,8 @@ public class SnippetHistoryItemDTO {
         this.bookTitle     = bookTitle;
         this.questionCount = questionCount;
         this.attemptResult = attemptResult;
+        this.correctCount  = correctCount;
+        this.totalCount    = totalCount;
         this.createdAt     = createdAt;
     }
 
@@ -39,5 +48,7 @@ public class SnippetHistoryItemDTO {
     public String  getBookTitle()     { return bookTitle; }
     public int     getQuestionCount() { return questionCount; }
     public String  getAttemptResult() { return attemptResult; }
+    public Integer getCorrectCount()  { return correctCount; }
+    public Integer getTotalCount()    { return totalCount; }
     public LocalDateTime getCreatedAt() { return createdAt; }
 }
