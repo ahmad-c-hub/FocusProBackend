@@ -360,7 +360,7 @@ public class AiService {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", aiModel);
-        body.put("max_tokens", 1500);
+        body.put("max_tokens", 4096);
         body.put("messages", List.of(
                 Map.of("role", "system", "content", systemPrompt),
                 Map.of("role", "user",   "content", userPrompt)
@@ -373,9 +373,16 @@ public class AiService {
                     restTemplate.postForEntity(aiApiUrl, entity, String.class);
 
             JsonNode root = objectMapper.readTree(response.getBody());
+            JsonNode choice = root.path("choices").get(0);
+
+            // Guard against truncated responses
+            String finishReason = choice.path("finish_reason").asText("");
+            if ("length".equals(finishReason)) {
+                throw new RuntimeException("AI response was truncated (finish_reason=length). Increase max_tokens.");
+            }
+
             // OpenAI-compatible response: choices[0].message.content
-            String text = root.path("choices").get(0)
-                              .path("message").path("content").asText();
+            String text = choice.path("message").path("content").asText();
 
             return stripMarkdownFences(text);
 
@@ -393,7 +400,7 @@ public class AiService {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", aiModel);
-        body.put("max_tokens", 1500);
+        body.put("max_tokens", 4096);
         body.put("system", systemPrompt);
         body.put("messages", List.of(
                 Map.of("role", "user", "content", userPrompt)
