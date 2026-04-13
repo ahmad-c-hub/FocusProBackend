@@ -51,6 +51,14 @@ public class FocusRoom {
     @Column(name = "invite_code", length = 10)
     private String inviteCode;
 
+    /**
+     * Last time someone joined this room.  Used to auto-delete rooms that have
+     * been empty for more than 2 days.  Null = room was never joined (use
+     * createdAt as the reference point instead).
+     */
+    @Column(name = "last_activity_at")
+    private LocalDateTime lastActivityAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

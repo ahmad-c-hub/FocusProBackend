@@ -6,9 +6,12 @@ import com.example.focuspro.dtos.RoomMemberDTO;
 import com.example.focuspro.entities.FocusRoom;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.FocusRoomRepo;
+import com.example.focuspro.repos.RoomMessageRepository;
 import com.example.focuspro.repos.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -21,21 +24,17 @@ import java.util.stream.IntStream;
 @Service
 public class FocusRoomService {
 
-    @Autowired
-    private FocusRoomRepo roomRepo;
-
-    @Autowired
-    private UserRepo userRepo;
-
-    @Autowired
-    private ActivityLogService activityLogService;
+    @Autowired private FocusRoomRepo roomRepo;
+    @Autowired private RoomMessageRepository messageRepo;
+    @Autowired private UserRepo userRepo;
+    @Autowired private ActivityLogService activityLogService;
 
     // roomId -> (username -> member info)
     private final Map<Long, Map<String, RoomMemberDTO>> presence = new ConcurrentHashMap<>();
 
     // Invite-code alphabet – unambiguous chars only (no 0/O/1/I/l)
     private static final String CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final SecureRandom RANDOM = new SecureRandom();
+    private static final SecureRandom RANDOM  = new SecureRandom();
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -72,11 +71,11 @@ public class FocusRoomService {
                         || category.isBlank()
                         || "All".equalsIgnoreCase(category)
                         || category.equalsIgnoreCase(r.getCategory()))
-                .map(room -> toDto(room, null, false)) // no invite code in list
+                .map(room -> toDto(room, null, false)) // no invite code in list view
                 .collect(Collectors.toList());
     }
 
-    // ── REST: get one room with full member list ────────────────────────────────
+    // ── REST: get one room with full member list ───────────────────────────────
     public FocusRoomDTO getRoomById(Long id) {
         FocusRoom room = roomRepo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Room not found: " + id));
@@ -113,7 +112,37 @@ public class FocusRoomService {
         return toDto(room, new ArrayList<>(), true);
     }
 
+    // ── REST: find a room by invite code ──────────────────────────────────────
+    public FocusRoomDTO getRoomByInviteCode(String code) {
+        return roomRepo.findAll().stream()
+                .filter(r -> r.isPrivate()
+                        && r.getInviteCode() != null
+                        && r.getInviteCode().equalsIgnoreCase(code.trim()))
+                .findFirst()
+                .map(r -> toDto(r, null, false)) // don't expose the code itself
+                .orElseThrow(() -> new RuntimeException("No private room found for that code"));
+    }
+
+    // ── REST: delete a room — only creator allowed ─────────────────────────────
+    @Transactional
+    public void deleteRoom(Long roomId, String requesterUsername) {
+        FocusRoom room = roomRepo.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Room not found: " + roomId));
+
+        if (!room.getCreatedBy().equals(requesterUsername)) {
+            throw new RuntimeException("Only the room creator can delete this room");
+        }
+
+        // Evict all members from presence cache
+        presence.remove(roomId);
+
+        // Cascade-delete messages then the room itself
+        messageRepo.deleteByRoomId(roomId);
+        roomRepo.delete(room);
+    }
+
     // ── Presence: user joins a room ────────────────────────────────────────────
+    @Transactional
     public List<RoomMemberDTO> joinRoom(Long roomId, String username, String goal, String inviteCode) {
         FocusRoom room = roomRepo.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found: " + roomId));
@@ -146,6 +175,10 @@ public class FocusRoomService {
         String joinedAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         roomMembers.put(username, new RoomMemberDTO(username, displayName, goal, joinedAt));
 
+        // ── Track last activity so the scheduler knows this room is alive ──────
+        room.setLastActivityAt(LocalDateTime.now());
+        roomRepo.save(room);
+
         userOpt.ifPresent(user ->
                 activityLogService.log(user.getId(), "FOCUS_ROOM_JOINED",
                         "Joined focus room: " + room.getName(),
@@ -168,5 +201,25 @@ public class FocusRoomService {
     // ── Presence: get current members ─────────────────────────────────────────
     public List<RoomMemberDTO> getMembers(Long roomId) {
         return new ArrayList<>(presence.getOrDefault(roomId, new HashMap<>()).values());
+    }
+
+    // ── Scheduled: auto-delete rooms inactive for 2+ days ─────────────────────
+    // Runs every day at 03:00 server time
+    @Scheduled(cron = "0 0 3 * * *")
+    @Transactional
+    public void purgeInactiveRooms() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(2);
+        List<FocusRoom> stale = roomRepo.findInactiveRooms(cutoff);
+        if (stale.isEmpty()) return;
+
+        for (FocusRoom room : stale) {
+            // Only delete if nobody is currently in the room
+            Map<String, RoomMemberDTO> current = presence.get(room.getId());
+            if (current != null && !current.isEmpty()) continue;
+
+            presence.remove(room.getId());
+            messageRepo.deleteByRoomId(room.getId());
+            roomRepo.delete(room);
+        }
     }
 }

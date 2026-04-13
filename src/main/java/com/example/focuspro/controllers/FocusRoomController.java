@@ -33,6 +33,17 @@ public class FocusRoomController {
         return ResponseEntity.ok(roomService.getRoomById(id));
     }
 
+    // GET /rooms/by-code/{code} — look up a private room by its invite code
+    @GetMapping("/by-code/{code}")
+    public ResponseEntity<?> getRoomByCode(@PathVariable String code) {
+        try {
+            return ResponseEntity.ok(roomService.getRoomByInviteCode(code));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // POST /rooms — create a new room
     @PostMapping
     public ResponseEntity<FocusRoomDTO> createRoom(
@@ -68,5 +79,19 @@ public class FocusRoomController {
             @AuthenticationPrincipal UserDetails userDetails) {
         roomService.leaveRoom(id, userDetails.getUsername());
         return ResponseEntity.ok().build();
+    }
+
+    // DELETE /rooms/{id} — only the room creator is allowed
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteRoom(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            roomService.deleteRoom(id, userDetails.getUsername());
+            return ResponseEntity.ok().build();
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 }

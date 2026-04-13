@@ -13,4 +13,6 @@ public interface RoomMessageRepository extends JpaRepository<RoomMessage, Long> 
     List<RoomMessage> findTop50ByRoomIdOrderBySentAtAsc(Long roomId);
 
     List<RoomMessage> findByRoomIdAndSentAtAfterOrderBySentAtAsc(Long roomId, Instant after);
+
+    void deleteByRoomId(Long roomId);
 }

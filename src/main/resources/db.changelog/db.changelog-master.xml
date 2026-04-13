@@ -14,7 +14,9 @@
     <include file="changes/008-seed-games.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-create-focus-rooms-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-seed-missing-games.xml" relativeToChangelogFile="true"/>
+    <include file="changes/010-update-diagnostic-questions.xml"    relativeToChangelogFile="true"/>
     <include file="changes/011-create-game-level-progress-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/012-create-room-messages-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/013-update-focus-rooms-add-fields.xml" relativeToChangelogFile="true"/>
+    <include file="changes/014-add-room-last-activity.xml"         relativeToChangelogFile="true"/>
 </databaseChangeLog>
