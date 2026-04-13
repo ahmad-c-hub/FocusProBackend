@@ -219,7 +219,7 @@ public class FocusRoomService {
             if (current != null && !current.isEmpty()) continue;
 
             presence.remove(room.getId());
-            messageRepo.deleteByRoomId(room.getId());
+            messageRepo.detachFromRoom(room.getId());
             roomRepo.delete(room);
         }
     }
