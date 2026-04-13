@@ -65,9 +65,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         } else {
             user = new Users();
             user.setUsername(email.substring(0, email.indexOf("@")));
-            // Store a hashed random token — never a readable plain-text string.
-            // This means the password column is always a proper BCrypt hash,
-            // and no one can guess or reuse this value to log in via the password endpoint.
             user.setPassword(bCryptPasswordEncoder.encode("GOOGLE_OAUTH_" + UUID.randomUUID()));
             user.setRole(userRole);
             user.setEmail(email);
