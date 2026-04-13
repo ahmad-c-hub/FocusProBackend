@@ -118,8 +118,8 @@ public class FocusRoomService {
         FocusRoom room = roomRepo.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("Room not found: " + roomId));
 
-        // Validate invite code for private rooms
-        if (room.isPrivate()) {
+        // Validate invite code for private rooms — creator can always re-join freely
+        if (room.isPrivate() && !username.equals(room.getCreatedBy())) {
             if (inviteCode == null || inviteCode.isBlank()
                     || !inviteCode.trim().equalsIgnoreCase(room.getInviteCode())) {
                 throw new RuntimeException("Invalid invite code");

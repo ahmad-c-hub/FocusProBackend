@@ -3,9 +3,6 @@ package com.example.focuspro.controllers;
 import com.example.focuspro.dtos.CreateRoomRequest;
 import com.example.focuspro.dtos.FocusRoomDTO;
 import com.example.focuspro.dtos.JoinRoomRequest;
-import com.example.focuspro.dtos.RoomMemberDTO;
-import com.example.focuspro.entities.FocusRoom;
-import com.example.focuspro.repos.FocusRoomRepo;
 import com.example.focuspro.services.FocusRoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -22,9 +19,6 @@ public class FocusRoomController {
 
     @Autowired
     private FocusRoomService roomService;
-
-    @Autowired
-    private FocusRoomRepo roomRepo;
 
     // GET /rooms — list all rooms (optional ?category=Study filter)
     @GetMapping
@@ -54,13 +48,12 @@ public class FocusRoomController {
             @RequestBody(required = false) JoinRoomRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            List<RoomMemberDTO> members = roomService.joinRoom(
+            roomService.joinRoom(
                     id,
                     userDetails.getUsername(),
                     request != null ? request.getGoal() : null,
                     request != null ? request.getInviteCode() : null);
 
-            FocusRoom room = roomRepo.findById(id).orElseThrow();
             return ResponseEntity.ok(roomService.getRoomById(id));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest()
