@@ -41,7 +41,8 @@ public class FocusRoomWebSocketController {
 
         String username = principal.getName();
         List<RoomMemberDTO> updatedMembers = roomService.joinRoom(roomId, username,
-                request != null ? request.getGoal() : null);
+                request != null ? request.getGoal() : null,
+                request != null ? request.getInviteCode() : null);
 
         RoomEventMessage event = new RoomEventMessage("JOIN", username, updatedMembers);
         messagingTemplate.convertAndSend("/topic/room/" + roomId, event);
