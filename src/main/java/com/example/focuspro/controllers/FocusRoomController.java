@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/rooms")
@@ -25,10 +26,11 @@ public class FocusRoomController {
     @Autowired
     private FocusRoomRepo roomRepo;
 
-    // GET /rooms — list all rooms (with live member count)
+    // GET /rooms — list all rooms (optional ?category=Study filter)
     @GetMapping
-    public ResponseEntity<List<FocusRoomDTO>> getAllRooms() {
-        return ResponseEntity.ok(roomService.getAllRooms());
+    public ResponseEntity<List<FocusRoomDTO>> getAllRooms(
+            @RequestParam(required = false) String category) {
+        return ResponseEntity.ok(roomService.getAllRooms(category));
     }
 
     // GET /rooms/{id} — full room detail with member list
@@ -45,20 +47,28 @@ public class FocusRoomController {
         return ResponseEntity.ok(roomService.createRoom(request, userDetails.getUsername()));
     }
 
+    // POST /rooms/{id}/join — join a room (validates invite code & capacity)
     @PostMapping("/{id}/join")
-    public ResponseEntity<FocusRoomDTO> joinRoom(
+    public ResponseEntity<?> joinRoom(
             @PathVariable Long id,
-            @RequestBody JoinRoomRequest request,
+            @RequestBody(required = false) JoinRoomRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
-        List<RoomMemberDTO> members = roomService.joinRoom(
-                id, userDetails.getUsername(),
-                request != null ? request.getGoal() : null);
-        FocusRoom room = roomRepo.findById(id).orElseThrow();
-        return ResponseEntity.ok(new FocusRoomDTO(
-                room.getId(), room.getName(), room.getEmoji(),
-                room.getCreatedBy(), members.size(), members));
+        try {
+            List<RoomMemberDTO> members = roomService.joinRoom(
+                    id,
+                    userDetails.getUsername(),
+                    request != null ? request.getGoal() : null,
+                    request != null ? request.getInviteCode() : null);
+
+            FocusRoom room = roomRepo.findById(id).orElseThrow();
+            return ResponseEntity.ok(roomService.getRoomById(id));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
+    // POST /rooms/{id}/leave
     @PostMapping("/{id}/leave")
     public ResponseEntity<Void> leaveRoom(
             @PathVariable Long id,

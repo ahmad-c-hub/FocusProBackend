@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="013-update-focus-rooms-add-fields" author="abd">
+
+        <!-- Room category (Study, Work, Creative, etc.) -->
+        <addColumn tableName="focus_rooms">
+            <column name="category" type="VARCHAR(50)" defaultValue="Study">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Optional short description of the room's purpose -->
+        <addColumn tableName="focus_rooms">
+            <column name="description" type="VARCHAR(200)"/>
+        </addColumn>
+
+        <!-- 0 = unlimited; any positive number caps the room -->
+        <addColumn tableName="focus_rooms">
+            <column name="max_members" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Private rooms require an invite code to join -->
+        <addColumn tableName="focus_rooms">
+            <column name="is_private" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <!-- Auto-generated 6-char alphanumeric code for private rooms -->
+        <addColumn tableName="focus_rooms">
+            <column name="invite_code" type="VARCHAR(10)"/>
+        </addColumn>
+
+        <rollback>
+            <dropColumn tableName="focus_rooms" columnName="category"/>
+            <dropColumn tableName="focus_rooms" columnName="description"/>
+            <dropColumn tableName="focus_rooms" columnName="max_members"/>
+            <dropColumn tableName="focus_rooms" columnName="is_private"/>
+            <dropColumn tableName="focus_rooms" columnName="invite_code"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
