@@ -17,7 +17,7 @@ public class RoomMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "room_id", nullable = false)
+    @Column(name = "room_id", nullable = true)
     private Long roomId;
 
     @Column(name = "user_id", nullable = false)

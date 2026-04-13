@@ -19,4 +19,5 @@
     <include file="changes/012-create-room-messages-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/013-update-focus-rooms-add-fields.xml" relativeToChangelogFile="true"/>
     <include file="changes/014-add-room-last-activity.xml"         relativeToChangelogFile="true"/>
+    <include file="changes/015-room-messages-nullable-room-id.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>

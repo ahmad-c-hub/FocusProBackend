@@ -136,8 +136,9 @@ public class FocusRoomService {
         // Evict all members from presence cache
         presence.remove(roomId);
 
-        // Cascade-delete messages then the room itself
-        messageRepo.deleteByRoomId(roomId);
+        // Detach messages from the room (set room_id = NULL) so chat history
+        // is preserved in the DB after the room is deleted.
+        messageRepo.detachFromRoom(roomId);
         roomRepo.delete(room);
     }
 
