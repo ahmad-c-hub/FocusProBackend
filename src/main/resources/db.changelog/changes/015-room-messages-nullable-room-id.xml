@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="015-room-messages-nullable-room-id" author="abd">
+
+        <!-- Drop the FK so deleting a room no longer cascades to messages -->
+        <dropForeignKeyConstraint baseTableName="room_messages"
+                                  constraintName="fk_room_messages_room"/>
+
+        <!-- Allow room_id to be NULL so messages survive after their room is deleted -->
+        <modifyDataType tableName="room_messages"
+                        columnName="room_id"
+                        newDataType="BIGINT"/>
+
+        <addNotNullConstraint tableName="room_messages"
+                              columnName="room_id"
+                              constraintName="nn_room_messages_room_id"
+                              validate="false"/>
+
+        <dropNotNullConstraint tableName="room_messages"
+                               columnName="room_id"
+                               columnDataType="BIGINT"/>
+
+        <rollback>
+            <addNotNullConstraint tableName="room_messages"
+                                  columnName="room_id"
+                                  columnDataType="BIGINT"/>
+            <addForeignKeyConstraint baseTableName="room_messages"
+                                     baseColumnNames="room_id"
+                                     constraintName="fk_room_messages_room"
+                                     referencedTableName="focus_rooms"
+                                     referencedColumnNames="id"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>

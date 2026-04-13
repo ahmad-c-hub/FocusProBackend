@@ -2,6 +2,9 @@ package com.example.focuspro.repos;
 
 import com.example.focuspro.entities.RoomMessage;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -14,5 +17,7 @@ public interface RoomMessageRepository extends JpaRepository<RoomMessage, Long> 
 
     List<RoomMessage> findByRoomIdAndSentAtAfterOrderBySentAtAsc(Long roomId, Instant after);
 
-    void deleteByRoomId(Long roomId);
+    @Modifying
+    @Query("UPDATE RoomMessage m SET m.roomId = NULL WHERE m.roomId = :roomId")
+    void detachFromRoom(@Param("roomId") Long roomId);
 }
