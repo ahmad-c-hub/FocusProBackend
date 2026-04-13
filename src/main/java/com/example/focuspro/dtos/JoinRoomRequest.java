@@ -7,5 +7,6 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinRoomRequest {
-    private String goal; // optional, e.g. "Finishing chapter 3"
+    private String goal;
+    private String inviteCode; // required for private rooms
 }
