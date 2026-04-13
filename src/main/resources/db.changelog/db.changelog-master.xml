@@ -15,4 +15,5 @@
     <include file="changes/009-create-focus-rooms-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-seed-missing-games.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-create-game-level-progress-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/012-create-room-messages-table.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
