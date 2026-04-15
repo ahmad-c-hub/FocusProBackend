@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="016-create-daily-goals-table" author="abd">
+
+        <createTable tableName="daily_goals">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="INT">
+                <constraints nullable="false"
+                             foreignKeyName="fk_daily_goals_user"
+                             references="users(id)"/>
+            </column>
+
+            <column name="goal_text" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="status" type="VARCHAR(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+
+            <column name="completed_at" type="TIMESTAMP"/>
+
+            <column name="goal_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addAutoIncrement tableName="daily_goals"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <rollback>
+            <dropTable tableName="daily_goals"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>

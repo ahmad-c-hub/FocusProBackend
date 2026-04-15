@@ -343,6 +343,13 @@ public class AiService {
         return new RetentionTestResponse(correct, total, delta, newScore, results, message);
     }
 
+    // ── Public wrapper for other services to call the AI ─────────────────────
+
+    /** Public entry point for any service that needs to call the AI without MCQ logic. */
+    public String callAiApiPublic(String systemPrompt, String userPrompt) {
+        return callAiApi(systemPrompt, userPrompt);
+    }
+
     // ── AI API call (OpenAI-compatible format — works with Gemini, Groq, OpenAI) ──
 
     private String callAiApi(String systemPrompt, String userPrompt) {
