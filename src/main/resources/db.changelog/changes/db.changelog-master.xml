@@ -13,5 +13,7 @@
     <include file="changes/006-create-users-questions-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/008-seed-games.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-create-focus-rooms-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/016-create-daily-goals-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/017-create-coaching-sessions-table.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>
