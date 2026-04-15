@@ -93,6 +93,7 @@ public class SecurityConfig {
         config.setAllowedOrigins(List.of(
                 "https://focuspro-fm2d.onrender.com",
                 "http://localhost:3000",
+                "http://localhost:5000",
                 "https://focuspro-frontend.onrender.com"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         // Must list headers explicitly (not "*") when allowCredentials=true
