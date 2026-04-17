@@ -1,6 +1,5 @@
 package com.example.focuspro.controllers;
 
-import com.example.focuspro.entities.GoalNotification;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,42 +14,51 @@ import java.util.Map;
 @RequestMapping("/notifications")
 public class NotificationController {
 
-    @Autowired
-    private NotificationService notificationService;
+    @Autowired private NotificationService notificationService;
 
-    /**
-     * Flutter calls this after login to register (or refresh) the FCM device token.
-     * Body: { "token": "<fcm_token>" }
-     */
+    /** Flutter registers FCM token after login (mobile). */
     @PostMapping("/fcm-token")
     public ResponseEntity<Map<String, String>> saveFcmToken(@RequestBody Map<String, String> body) {
         String token = body.get("token");
-        if (token == null || token.isBlank()) {
+        if (token == null || token.isBlank())
             return ResponseEntity.badRequest().body(Map.of("error", "token is required"));
-        }
-        Users user = currentUser();
-        notificationService.saveFcmToken(user.getId(), token);
-        return ResponseEntity.ok(Map.of("status", "token saved"));
+        notificationService.saveFcmToken(currentUser().getId(), token);
+        return ResponseEntity.ok(Map.of("status", "saved"));
     }
 
-    /**
-     * Web polling endpoint — Flutter web calls this every minute.
-     * Returns all notifications that are due (scheduled_at <= now) and not yet sent.
-     */
+    /** Browser fetches this to subscribe to VAPID push. No auth needed (public key is public). */
+    @GetMapping("/vapid-public-key")
+    public ResponseEntity<Map<String, String>> getVapidPublicKey() {
+        String key = notificationService.getVapidPublicKey();
+        if (key == null || key.isBlank())
+            return ResponseEntity.ok(Map.of("key", ""));
+        return ResponseEntity.ok(Map.of("key", key));
+    }
+
+    /** Browser sends its push subscription object after calling PushManager.subscribe(). */
+    @PostMapping("/web-push-subscribe")
+    public ResponseEntity<Map<String, String>> webPushSubscribe(@RequestBody Map<String, Object> body) {
+        String endpoint = (String) body.get("endpoint");
+        @SuppressWarnings("unchecked")
+        Map<String, String> keys = (Map<String, String>) body.get("keys");
+        if (endpoint == null || keys == null)
+            return ResponseEntity.badRequest().body(Map.of("error", "endpoint and keys required"));
+
+        notificationService.saveWebPushSubscription(
+                currentUser().getId(), endpoint, keys.get("p256dh"), keys.get("auth"));
+        return ResponseEntity.ok(Map.of("status", "subscribed"));
+    }
+
+    /** Polling fallback for browsers without a push subscription (tab must be open). */
     @GetMapping("/pending")
     public ResponseEntity<List<Map<String, Object>>> getPending() {
-        Users user = currentUser();
-        List<Map<String, Object>> pending = notificationService.getPendingForUser(user.getId());
-        return ResponseEntity.ok(pending);
+        return ResponseEntity.ok(notificationService.getPendingForUser(currentUser().getId()));
     }
 
-    /**
-     * After Flutter web shows a notification in the browser, it calls this to mark it done.
-     */
+    /** Flutter web calls this after showing a polled notification so it won't repeat. */
     @PostMapping("/{id}/acknowledge")
     public ResponseEntity<Map<String, String>> acknowledge(@PathVariable long id) {
-        Users user = currentUser();
-        notificationService.acknowledge(id, user.getId());
+        notificationService.acknowledge(id, currentUser().getId());
         return ResponseEntity.ok(Map.of("status", "acknowledged"));
     }
 

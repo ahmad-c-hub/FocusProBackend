@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +30,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class NotificationService {
@@ -40,6 +42,7 @@ public class NotificationService {
     @Autowired private DailyGoalRepo goalRepo;
     @Autowired private UserRepo userRepo;
     @Autowired private AiService aiService;
+    @Autowired private WebPushService webPushService;
 
     @Value("${firebase.credentials.json:}")
     private String firebaseCredentialsJson;
@@ -50,35 +53,32 @@ public class NotificationService {
 
     @PostConstruct
     public void initFirebase() {
-        if (firebaseCredentialsJson == null || firebaseCredentialsJson.isBlank()) {
-            log.warn("FIREBASE_CREDENTIALS_JSON not configured — push notifications disabled. " +
-                    "Set the env var on Render with your Firebase service account JSON.");
-            return;
-        }
+        if (firebaseCredentialsJson == null || firebaseCredentialsJson.isBlank()) return;
         try {
             InputStream credStream = new ByteArrayInputStream(
                     firebaseCredentialsJson.getBytes(StandardCharsets.UTF_8));
             GoogleCredentials credentials = GoogleCredentials.fromStream(credStream);
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(credentials)
-                    .build();
-            if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options);
-            }
+            FirebaseOptions options = FirebaseOptions.builder().setCredentials(credentials).build();
+            if (FirebaseApp.getApps().isEmpty()) FirebaseApp.initializeApp(options);
             firebaseMessaging = FirebaseMessaging.getInstance();
             firebaseEnabled = true;
-            log.info("Firebase initialized successfully — push notifications enabled.");
+            log.info("Firebase initialized — mobile push enabled.");
         } catch (Exception e) {
-            log.error("Failed to initialize Firebase: {}", e.getMessage());
+            log.error("Firebase init failed: {}", e.getMessage());
         }
     }
 
-    // ── Called by CoachingService when goals are set ──────────────────────────
+    // ── Called by CoachingService — runs ASYNC so it doesn't block the response ──
 
+    @Async
     public void scheduleNotificationsForGoals(List<DailyGoal> goals, Users user, int utcOffsetMinutes) {
         for (DailyGoal goal : goals) {
             try {
+                // Small delay between goals so AI calls don't burst on Groq free tier
+                Thread.sleep(1500);
                 scheduleForGoal(goal, user, utcOffsetMinutes);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 log.warn("Could not schedule notifications for goal {}: {}", goal.getId(), e.getMessage());
             }
@@ -86,46 +86,37 @@ public class NotificationService {
     }
 
     private void scheduleForGoal(DailyGoal goal, Users user, int utcOffsetMinutes) {
-        // Clear any pending unsent notifications for this goal (in case of re-scheduling)
         notificationRepo.deleteByGoalIdAndSentFalse(goal.getId());
 
-        // Server runs UTC on Render. Convert to the user's local time so the AI
-        // understands times mentioned in the goal (e.g. "sleep at 22:44" in Lebanon).
+        // Convert server UTC to user's local time so the AI understands their goal times
         LocalDateTime userLocalNow = LocalDateTime.now().plusMinutes(utcOffsetMinutes);
         String timeStr = userLocalNow.format(DateTimeFormatter.ofPattern("HH:mm"));
         String dayStr  = userLocalNow.getDayOfWeek().name();
 
         String systemPrompt = """
-                You are a smart notification scheduler for a productivity coach app called FocusPro.
-                You decide exactly when to send push notifications for a user's personal goal.
-                Return ONLY valid JSON. No markdown, no explanation, no code blocks.
+                You are a smart notification scheduler for a productivity app called FocusPro.
+                Return ONLY valid JSON. No markdown, no explanation.
                 """;
 
         String userPrompt = String.format("""
                 User goal: "%s"
-                Current time: %s (%s)
+                User's current local time: %s (%s)
 
-                Plan push notifications for this goal. Follow these rules exactly:
-                - If the goal mentions a specific time (e.g. "at 3pm", "tonight at 8", "this morning"):
-                  * Schedule one REMINDER ~25 minutes BEFORE that time (to help them prepare)
-                  * Schedule one CHECKIN ~45 minutes AFTER that time (to see if they finished)
+                Plan push notifications for this goal:
+                - If a specific time is mentioned (e.g. "at 3pm", "tonight at 8"):
+                  * REMINDER ~25 min before that time
+                  * CHECKIN ~45 min after that time
                 - If no time is mentioned:
-                  * Schedule one MOTIVATION at a sensible time today
-                  * Schedule one CHECKIN later in the day
-                - minutesFromNow must be >= 10 (no past or immediate notifications)
-                - If a notification would be in the past (negative or < 10), omit it entirely
-                - Messages must be personal, conversational, and reference the specific goal. Max 80 characters.
-                - Maximum 2 notifications total.
+                  * MOTIVATION at a sensible time (consider current time)
+                  * CHECKIN later in the day
+                - minutesFromNow >= 10 only. Omit if it would be negative.
+                - Messages must be personal and mention the specific goal. Max 80 chars.
+                - Maximum 2 notifications.
 
-                Return this exact JSON format:
+                JSON only:
                 {
                   "notifications": [
-                    {
-                      "minutesFromNow": 25,
-                      "type": "REMINDER",
-                      "title": "Almost time!",
-                      "message": "Your gym session starts in 25 minutes. Get ready!"
-                    }
+                    { "minutesFromNow": 25, "type": "REMINDER", "title": "...", "message": "..." }
                   ]
                 }
                 """, goal.getGoalText(), timeStr, dayStr);
@@ -136,14 +127,10 @@ public class NotificationService {
 
     private void parseAndSaveSchedule(String aiJson, DailyGoal goal, int userId) {
         try {
-            String cleaned = aiJson.trim()
-                    .replaceAll("```json", "").replaceAll("```", "").trim();
+            String cleaned = aiJson.trim().replaceAll("```json", "").replaceAll("```", "").trim();
             JsonNode root = objectMapper.readTree(cleaned);
             JsonNode notifs = root.get("notifications");
-            if (notifs == null || !notifs.isArray() || notifs.isEmpty()) {
-                log.warn("AI returned no notifications for goal {}", goal.getId());
-                return;
-            }
+            if (notifs == null || !notifs.isArray() || notifs.isEmpty()) return;
 
             for (JsonNode n : notifs) {
                 int minutesFromNow = n.path("minutesFromNow").asInt(0);
@@ -151,11 +138,8 @@ public class NotificationService {
 
                 String typeStr = n.path("type").asText("CHECKIN");
                 GoalNotification.Type type;
-                try {
-                    type = GoalNotification.Type.valueOf(typeStr);
-                } catch (IllegalArgumentException e) {
-                    type = GoalNotification.Type.CHECKIN;
-                }
+                try { type = GoalNotification.Type.valueOf(typeStr); }
+                catch (IllegalArgumentException e) { type = GoalNotification.Type.CHECKIN; }
 
                 GoalNotification notif = new GoalNotification();
                 notif.setUserId(userId);
@@ -168,15 +152,14 @@ public class NotificationService {
                 notif.setSent(false);
                 notificationRepo.save(notif);
 
-                log.info("Scheduled {} notification for goal '{}' in {} minutes",
-                        type, goal.getGoalText(), minutesFromNow);
+                log.info("Scheduled {} in {}min for goal '{}'", type, minutesFromNow, goal.getGoalText());
             }
         } catch (Exception e) {
             log.error("Failed to parse AI notification schedule: {}", e.getMessage());
         }
     }
 
-    // ── Scheduled task: runs every 60 seconds ─────────────────────────────────
+    // ── Scheduler: fires every 60 seconds ─────────────────────────────────────
 
     @Scheduled(fixedDelay = 60_000)
     public void sendPendingNotifications() {
@@ -194,54 +177,57 @@ public class NotificationService {
 
     private void processPendingNotification(GoalNotification notif) throws Exception {
         Users user = userRepo.findById(notif.getUserId()).orElse(null);
-        if (user == null) {
-            markSent(notif);
-            return;
-        }
+        if (user == null) { markSent(notif); return; }
 
         DailyGoal goal = goalRepo.findById(notif.getGoalId()).orElse(null);
         if (goal == null || goal.getStatus() == DailyGoal.Status.DONE
                 || goal.getStatus() == DailyGoal.Status.SKIPPED) {
-            markSent(notif); // goal already done/skipped — no need to notify
+            markSent(notif);
             return;
         }
 
-        // Try FCM if Firebase is enabled and user has a mobile token
-        if (firebaseEnabled && user.getFcmToken() != null && !user.getFcmToken().isBlank()) {
-            sendFcm(user.getFcmToken(), notif.getTitle(), notif.getMessage(),
-                    Map.of(
-                            "goalId", String.valueOf(notif.getGoalId()),
-                            "type",   notif.getNotificationType().name(),
-                            "screen", "/coaching"
-                    ));
-            // Schedule follow-up for mobile FCM path (web path handles this in acknowledge())
-            if (notif.getNotificationType() == GoalNotification.Type.CHECKIN) {
-                long pendingFollowups = notificationRepo.countPendingFollowupsForGoal(notif.getGoalId());
-                if (pendingFollowups < MAX_FOLLOWUPS_PER_GOAL) {
-                    scheduleAiFollowup(goal, user);
-                }
-            }
-            markSent(notif);
+        boolean delivered = false;
+
+        // 1. Try Web Push (VAPID) — works in background on installed PWA
+        if (webPushService.isEnabled()) {
+            webPushService.sendToUser(notif.getUserId(), notif.getTitle(), notif.getMessage());
+            delivered = true;
         }
-        // If no FCM token (web users): leave unsent so Flutter web polls /notifications/pending
+
+        // 2. Try FCM (mobile app)
+        if (!delivered && firebaseEnabled
+                && user.getFcmToken() != null && !user.getFcmToken().isBlank()) {
+            sendFcm(user.getFcmToken(), notif.getTitle(), notif.getMessage(),
+                    Map.of("goalId", String.valueOf(notif.getGoalId()),
+                           "type",   notif.getNotificationType().name(),
+                           "screen", "/coaching"));
+            delivered = true;
+        }
+
+        // 3. Neither configured: leave pending so Flutter web polling can pick it up
+        if (!delivered) return;
+
+        if (notif.getNotificationType() == GoalNotification.Type.CHECKIN) {
+            long pending = notificationRepo.countPendingFollowupsForGoal(notif.getGoalId());
+            if (pending < MAX_FOLLOWUPS_PER_GOAL) {
+                scheduleAiFollowup(goal, user);
+            }
+        }
+        markSent(notif);
     }
 
     private void scheduleAiFollowup(DailyGoal goal, Users user) {
-        String systemPrompt = """
-                You are a caring productivity coach sending a follow-up push notification.
-                The user has not yet completed their goal.
-                Return ONLY valid JSON. No markdown.
-                """;
-        String userPrompt = String.format("""
-                The user hasn't finished: "%s"
-                Write a warm, encouraging follow-up push notification (not nagging).
-                Reference the specific goal. Keep message under 80 characters.
-
-                Return JSON: {"title": "...", "message": "..."}
-                """, goal.getGoalText());
-
         try {
-            String aiJson = aiService.callAiApiPublic(systemPrompt, userPrompt);
+            Thread.sleep(2000); // avoid rate limit burst
+            String aiJson = aiService.callAiApiPublic(
+                "You are a caring productivity coach. Return ONLY valid JSON.",
+                String.format("""
+                    The user hasn't finished: "%s"
+                    Write a warm, encouraging follow-up push notification.
+                    Keep message under 80 chars. Reference the specific goal.
+                    JSON: {"title": "...", "message": "..."}
+                    """, goal.getGoalText())
+            );
             String cleaned = aiJson.trim().replaceAll("```json", "").replaceAll("```", "").trim();
             JsonNode root = objectMapper.readTree(cleaned);
 
@@ -255,52 +241,32 @@ public class NotificationService {
             followup.setScheduledAt(LocalDateTime.now().plusMinutes(45));
             followup.setSent(false);
             notificationRepo.save(followup);
-
-            log.info("AI scheduled FOLLOWUP for goal '{}' in 45 minutes", goal.getGoalText());
+            log.info("AI scheduled FOLLOWUP for goal '{}'", goal.getGoalText());
         } catch (Exception e) {
-            log.warn("Failed to schedule AI follow-up for goal {}: {}", goal.getId(), e.getMessage());
+            log.warn("Failed to schedule AI follow-up: {}", e.getMessage());
         }
     }
-
-    // ── FCM send ──────────────────────────────────────────────────────────────
 
     private void sendFcm(String token, String title, String body, Map<String, String> data)
             throws Exception {
         Message msg = Message.builder()
                 .setToken(token)
-                .setNotification(Notification.builder()
-                        .setTitle(title)
-                        .setBody(body)
-                        .build())
-                .putAllData(data)
-                .build();
-        String msgId = firebaseMessaging.send(msg);
-        log.info("FCM sent: {}", msgId);
+                .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                .putAllData(data).build();
+        firebaseMessaging.send(msg);
     }
 
-    // ── Save FCM token from Flutter app ──────────────────────────────────────
-
-    public void saveFcmToken(int userId, String token) {
-        userRepo.findById(userId).ifPresent(user -> {
-            user.setFcmToken(token);
-            userRepo.save(user);
-            log.info("FCM token saved for user {}", userId);
-        });
-    }
-
-    // ── Web polling: return due unsent notifications for this user ────────────
+    // ── Web polling fallback (for browsers without push subscription) ─────────
 
     public List<Map<String, Object>> getPendingForUser(int userId) {
         return notificationRepo.findByScheduledAtBeforeAndSentFalse(LocalDateTime.now())
                 .stream()
                 .filter(n -> n.getUserId() == userId)
                 .map(n -> {
-                    // Skip if goal is already done/skipped
                     DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
                     if (goal == null || goal.getStatus() == DailyGoal.Status.DONE
                             || goal.getStatus() == DailyGoal.Status.SKIPPED) {
-                        markSent(n);
-                        return null;
+                        markSent(n); return null;
                     }
                     Map<String, Object> m = new java.util.HashMap<>();
                     m.put("id",      n.getId());
@@ -310,34 +276,43 @@ public class NotificationService {
                     m.put("goalId",  n.getGoalId());
                     return m;
                 })
-                .filter(java.util.Objects::nonNull)
+                .filter(Objects::nonNull)
                 .toList();
     }
-
-    // ── Acknowledge: Flutter web calls this after showing the notification ────
 
     public void acknowledge(long notificationId, int userId) {
         notificationRepo.findById(notificationId).ifPresent(n -> {
             if (n.getUserId() != userId) return;
-
-            // Schedule AI follow-up if this was a CHECKIN
             if (n.getNotificationType() == GoalNotification.Type.CHECKIN) {
                 DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
                 Users user = userRepo.findById(userId).orElse(null);
                 if (goal != null && user != null
                         && goal.getStatus() != DailyGoal.Status.DONE
-                        && goal.getStatus() != DailyGoal.Status.SKIPPED) {
-                    long pendingFollowups = notificationRepo.countPendingFollowupsForGoal(n.getGoalId());
-                    if (pendingFollowups < MAX_FOLLOWUPS_PER_GOAL) {
-                        scheduleAiFollowup(goal, user);
-                    }
+                        && goal.getStatus() != DailyGoal.Status.SKIPPED
+                        && notificationRepo.countPendingFollowupsForGoal(n.getGoalId()) < MAX_FOLLOWUPS_PER_GOAL) {
+                    scheduleAiFollowup(goal, user);
                 }
             }
             markSent(n);
         });
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
+    // ── FCM token + web push subscription management ──────────────────────────
+
+    public void saveFcmToken(int userId, String token) {
+        userRepo.findById(userId).ifPresent(user -> {
+            user.setFcmToken(token);
+            userRepo.save(user);
+        });
+    }
+
+    public void saveWebPushSubscription(int userId, String endpoint, String p256dh, String auth) {
+        webPushService.saveSubscription(userId, endpoint, p256dh, auth);
+    }
+
+    public String getVapidPublicKey() {
+        return webPushService.getVapidPublicKey();
+    }
 
     private void markSent(GoalNotification notif) {
         notif.setSent(true);
