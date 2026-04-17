@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <!-- Add FCM token column to users -->
+    <changeSet id="019-add-fcm-token" author="focuspro">
+        <addColumn tableName="users">
+            <column name="fcm_token" type="VARCHAR(512)"/>
+        </addColumn>
+    </changeSet>
+
+    <!-- Create goal_notifications table for AI-scheduled smart notifications -->
+    <changeSet id="019-create-goal-notifications" author="focuspro">
+        <createTable tableName="goal_notifications">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="goal_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="goal_text" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="notification_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="title" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message" type="TEXT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scheduled_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sent" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="sent_at" type="TIMESTAMP"/>
+            <column name="created_at" type="TIMESTAMP"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="goal_notifications"
+                baseColumnNames="user_id"
+                referencedTableName="users"
+                referencedColumnNames="id"
+                constraintName="fk_goal_notifications_user"/>
+
+        <addForeignKeyConstraint
+                baseTableName="goal_notifications"
+                baseColumnNames="goal_id"
+                referencedTableName="daily_goals"
+                referencedColumnNames="id"
+                constraintName="fk_goal_notifications_goal"
+                onDelete="CASCADE"/>
+
+        <createIndex tableName="goal_notifications" indexName="idx_goal_notifications_scheduled">
+            <column name="scheduled_at"/>
+            <column name="sent"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

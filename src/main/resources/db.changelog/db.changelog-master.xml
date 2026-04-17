@@ -23,4 +23,5 @@
     <include file="changes/016-create-daily-goals-table.xml"       relativeToChangelogFile="true"/>
     <include file="changes/017-create-coaching-sessions-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/018-seed-book-cover-urls.xml"           relativeToChangelogFile="true"/>
+    <include file="changes/019-add-fcm-notifications.xml"          relativeToChangelogFile="true"/>
 </databaseChangeLog>

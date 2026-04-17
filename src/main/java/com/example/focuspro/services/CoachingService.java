@@ -30,6 +30,7 @@ public class CoachingService {
     @Autowired private ActivityLogRepo activityLogRepo;
     @Autowired private ActivityLogService activityLogService;
     @Autowired private AiService aiService;
+    @Autowired private NotificationService notificationService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -102,6 +103,9 @@ public class CoachingService {
 
         activityLogService.log(user.getId(), "COACHING_MORNING_START",
                 "Morning coaching started with " + newGoals.size() + " goals");
+
+        // Let AI schedule smart notifications for each goal in the background
+        notificationService.scheduleNotificationsForGoals(newGoals, user);
 
         return new CoachingMessageResponse(aiReply, session.getId(), goalsToDTOs(newGoals));
     }

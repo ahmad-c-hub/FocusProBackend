@@ -65,6 +65,9 @@ public class Users implements UserDetails {
     @Column(name = "is_google_user")
     private boolean isGoogleUser;
 
+    @Column(name = "fcm_token", length = 512)
+    private String fcmToken;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinTable(
             name = "user_roles",
