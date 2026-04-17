@@ -1,12 +1,15 @@
 package com.example.focuspro.dtos;
 
 import java.util.List;
+import java.util.Map;
 
 public class CoachingMessageResponse {
 
     private String reply;
     private long sessionId;
     private List<DailyGoalDTO> updatedGoals;
+    /** Full conversation history — only populated by GET /coaching/session/today */
+    private List<Map<String, String>> messages;
 
     public CoachingMessageResponse() {}
 
@@ -24,4 +27,7 @@ public class CoachingMessageResponse {
 
     public List<DailyGoalDTO> getUpdatedGoals() { return updatedGoals; }
     public void setUpdatedGoals(List<DailyGoalDTO> updatedGoals) { this.updatedGoals = updatedGoals; }
+
+    public List<Map<String, String>> getMessages() { return messages; }
+    public void setMessages(List<Map<String, String>> messages) { this.messages = messages; }
 }

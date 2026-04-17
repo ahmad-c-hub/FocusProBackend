@@ -215,6 +215,28 @@ public class CoachingService {
         return goalsToDTOs(goals);
     }
 
+    // ── d2) Get today's active session (for session restore after logout) ─────
+
+    public CoachingMessageResponse getTodaySession() {
+        Users user = currentUser();
+        LocalDate today = LocalDate.now();
+
+        Optional<CoachingSession> sessionOpt = coachingSessionRepo
+                .findByUserIdAndSessionDateAndSessionType(user.getId(), today, CoachingSession.SessionType.MORNING);
+
+        if (sessionOpt.isEmpty()) return null;
+
+        CoachingSession session = sessionOpt.get();
+        List<DailyGoal> goals = dailyGoalRepo.findByUserIdAndGoalDate(user.getId(), today);
+        List<Map<String, String>> history = parseHistory(session.getConversationHistory());
+
+        CoachingMessageResponse response = new CoachingMessageResponse();
+        response.setSessionId(session.getId());
+        response.setUpdatedGoals(goalsToDTOs(goals));
+        response.setMessages(history);
+        return response;
+    }
+
     // ── e) Update goal status ─────────────────────────────────────────────────
 
     public DailyGoalDTO updateGoalStatus(long goalId, String status) {
