@@ -7,6 +7,7 @@ import com.example.focuspro.dtos.DailyGoalRequest;
 import com.example.focuspro.dtos.UpdateGoalStatusRequest;
 import com.example.focuspro.services.CoachingService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -54,6 +55,14 @@ public class CoachingController {
     @GetMapping("/goals/today")
     public List<DailyGoalDTO> getTodayGoals() {
         return coachingService.getTodayGoals();
+    }
+
+    // GET /coaching/session/today — restore today's session after logout/login
+    @GetMapping("/session/today")
+    public ResponseEntity<CoachingMessageResponse> getTodaySession() {
+        CoachingMessageResponse response = coachingService.getTodaySession();
+        if (response == null) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(response);
     }
 
     // PATCH /coaching/goals/{goalId}/status — update goal status
