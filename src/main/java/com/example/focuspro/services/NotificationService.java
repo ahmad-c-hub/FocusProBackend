@@ -192,8 +192,8 @@ public class NotificationService {
 
     private void processPendingNotification(GoalNotification notif) throws Exception {
         Users user = userRepo.findById(notif.getUserId()).orElse(null);
-        if (user == null || user.getFcmToken() == null || user.getFcmToken().isBlank()) {
-            markSent(notif); // no device token, skip silently
+        if (user == null) {
+            markSent(notif);
             return;
         }
 
@@ -204,24 +204,24 @@ public class NotificationService {
             return;
         }
 
-        // Send to device
-        if (firebaseEnabled) {
+        // Try FCM if Firebase is enabled and user has a mobile token
+        if (firebaseEnabled && user.getFcmToken() != null && !user.getFcmToken().isBlank()) {
             sendFcm(user.getFcmToken(), notif.getTitle(), notif.getMessage(),
                     Map.of(
                             "goalId", String.valueOf(notif.getGoalId()),
                             "type",   notif.getNotificationType().name(),
                             "screen", "/coaching"
                     ));
-        }
-        markSent(notif);
-
-        // After a CHECKIN: if goal is still pending, let AI schedule a follow-up
-        if (notif.getNotificationType() == GoalNotification.Type.CHECKIN) {
-            long pendingFollowups = notificationRepo.countPendingFollowupsForGoal(notif.getGoalId());
-            if (pendingFollowups < MAX_FOLLOWUPS_PER_GOAL) {
-                scheduleAiFollowup(goal, user);
+            // Schedule follow-up for mobile FCM path (web path handles this in acknowledge())
+            if (notif.getNotificationType() == GoalNotification.Type.CHECKIN) {
+                long pendingFollowups = notificationRepo.countPendingFollowupsForGoal(notif.getGoalId());
+                if (pendingFollowups < MAX_FOLLOWUPS_PER_GOAL) {
+                    scheduleAiFollowup(goal, user);
+                }
             }
+            markSent(notif);
         }
+        // If no FCM token (web users): leave unsent so Flutter web polls /notifications/pending
     }
 
     private void scheduleAiFollowup(DailyGoal goal, Users user) {
@@ -283,6 +283,55 @@ public class NotificationService {
             user.setFcmToken(token);
             userRepo.save(user);
             log.info("FCM token saved for user {}", userId);
+        });
+    }
+
+    // ── Web polling: return due unsent notifications for this user ────────────
+
+    public List<Map<String, Object>> getPendingForUser(int userId) {
+        return notificationRepo.findByScheduledAtBeforeAndSentFalse(LocalDateTime.now())
+                .stream()
+                .filter(n -> n.getUserId() == userId)
+                .map(n -> {
+                    // Skip if goal is already done/skipped
+                    DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
+                    if (goal == null || goal.getStatus() == DailyGoal.Status.DONE
+                            || goal.getStatus() == DailyGoal.Status.SKIPPED) {
+                        markSent(n);
+                        return null;
+                    }
+                    Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id",      n.getId());
+                    m.put("title",   n.getTitle());
+                    m.put("message", n.getMessage());
+                    m.put("type",    n.getNotificationType().name());
+                    m.put("goalId",  n.getGoalId());
+                    return m;
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    // ── Acknowledge: Flutter web calls this after showing the notification ────
+
+    public void acknowledge(long notificationId, int userId) {
+        notificationRepo.findById(notificationId).ifPresent(n -> {
+            if (n.getUserId() != userId) return;
+
+            // Schedule AI follow-up if this was a CHECKIN
+            if (n.getNotificationType() == GoalNotification.Type.CHECKIN) {
+                DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
+                Users user = userRepo.findById(userId).orElse(null);
+                if (goal != null && user != null
+                        && goal.getStatus() != DailyGoal.Status.DONE
+                        && goal.getStatus() != DailyGoal.Status.SKIPPED) {
+                    long pendingFollowups = notificationRepo.countPendingFollowupsForGoal(n.getGoalId());
+                    if (pendingFollowups < MAX_FOLLOWUPS_PER_GOAL) {
+                        scheduleAiFollowup(goal, user);
+                    }
+                }
+            }
+            markSent(n);
         });
     }
 
