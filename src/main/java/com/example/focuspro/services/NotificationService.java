@@ -75,23 +75,25 @@ public class NotificationService {
 
     // ── Called by CoachingService when goals are set ──────────────────────────
 
-    public void scheduleNotificationsForGoals(List<DailyGoal> goals, Users user) {
+    public void scheduleNotificationsForGoals(List<DailyGoal> goals, Users user, int utcOffsetMinutes) {
         for (DailyGoal goal : goals) {
             try {
-                scheduleForGoal(goal, user);
+                scheduleForGoal(goal, user, utcOffsetMinutes);
             } catch (Exception e) {
                 log.warn("Could not schedule notifications for goal {}: {}", goal.getId(), e.getMessage());
             }
         }
     }
 
-    private void scheduleForGoal(DailyGoal goal, Users user) {
+    private void scheduleForGoal(DailyGoal goal, Users user, int utcOffsetMinutes) {
         // Clear any pending unsent notifications for this goal (in case of re-scheduling)
         notificationRepo.deleteByGoalIdAndSentFalse(goal.getId());
 
-        LocalDateTime now = LocalDateTime.now();
-        String timeStr = now.format(DateTimeFormatter.ofPattern("HH:mm"));
-        String dayStr  = now.getDayOfWeek().name();
+        // Server runs UTC on Render. Convert to the user's local time so the AI
+        // understands times mentioned in the goal (e.g. "sleep at 22:44" in Lebanon).
+        LocalDateTime userLocalNow = LocalDateTime.now().plusMinutes(utcOffsetMinutes);
+        String timeStr = userLocalNow.format(DateTimeFormatter.ofPattern("HH:mm"));
+        String dayStr  = userLocalNow.getDayOfWeek().name();
 
         String systemPrompt = """
                 You are a smart notification scheduler for a productivity coach app called FocusPro.

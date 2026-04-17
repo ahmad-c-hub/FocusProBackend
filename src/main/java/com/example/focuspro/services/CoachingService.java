@@ -36,7 +36,7 @@ public class CoachingService {
 
     // ── a) Set daily goals (morning) ─────────────────────────────────────────
 
-    public CoachingMessageResponse setDailyGoals(List<String> goalTexts) {
+    public CoachingMessageResponse setDailyGoals(List<String> goalTexts, int utcOffsetMinutes) {
         Users user = currentUser();
         LocalDate today = LocalDate.now();
 
@@ -104,8 +104,8 @@ public class CoachingService {
         activityLogService.log(user.getId(), "COACHING_MORNING_START",
                 "Morning coaching started with " + newGoals.size() + " goals");
 
-        // Let AI schedule smart notifications for each goal in the background
-        notificationService.scheduleNotificationsForGoals(newGoals, user);
+        // Let AI schedule smart notifications using the user's local timezone
+        notificationService.scheduleNotificationsForGoals(newGoals, user, utcOffsetMinutes);
 
         return new CoachingMessageResponse(aiReply, session.getId(), goalsToDTOs(newGoals));
     }
