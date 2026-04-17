@@ -22,4 +22,5 @@
     <include file="changes/015-room-messages-nullable-room-id.xml" relativeToChangelogFile="true"/>
     <include file="changes/016-create-daily-goals-table.xml"       relativeToChangelogFile="true"/>
     <include file="changes/017-create-coaching-sessions-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/018-seed-book-cover-urls.xml"           relativeToChangelogFile="true"/>
 </databaseChangeLog>
