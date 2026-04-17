@@ -35,7 +35,7 @@ public class CoachingController {
     // POST /coaching/goals — set morning goals
     @PostMapping("/goals")
     public CoachingMessageResponse setDailyGoals(@RequestBody DailyGoalRequest req) {
-        return coachingService.setDailyGoals(req.getGoals());
+        return coachingService.setDailyGoals(req.getGoals(), req.getUtcOffsetMinutes());
     }
 
     // POST /coaching/session/{sessionId}/message — send a coaching message
