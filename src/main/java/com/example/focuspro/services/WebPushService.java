@@ -76,13 +76,21 @@ public class WebPushService {
         log.info("Web push subscription saved for user {}", userId);
     }
 
-    /** Send a push notification to all of a user's browser subscriptions. */
-    public void sendToUser(int userId, String title, String body) {
-        if (!enabled) return;
+    /**
+     * Send a push notification to all of a user's browser subscriptions.
+     * Returns true only if at least one subscription existed and was attempted.
+     */
+    public boolean sendToUser(int userId, String title, String body) {
+        if (!enabled) return false;
         List<WebPushSubscription> subs = subscriptionRepo.findByUserId(userId);
+        if (subs.isEmpty()) {
+            log.warn("Web push: no subscriptions found for user {} — falling back to polling", userId);
+            return false;
+        }
         for (WebPushSubscription sub : subs) {
             sendToSubscription(sub, title, body);
         }
+        return true;
     }
 
     private void sendToSubscription(WebPushSubscription sub, String title, String body) {

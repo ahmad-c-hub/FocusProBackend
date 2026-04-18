@@ -282,10 +282,11 @@ public class NotificationService {
 
         boolean delivered = false;
 
-        // Priority 1: VAPID Web Push (background even when tab closed)
+        // Priority 1: VAPID Web Push (background even when tab closed).
+        // Only marks delivered=true if the user actually has a registered subscription;
+        // otherwise falls through to polling so the notification isn't silently dropped.
         if (webPushService.isEnabled()) {
-            webPushService.sendToUser(notif.getUserId(), notif.getTitle(), notif.getMessage());
-            delivered = true;
+            delivered = webPushService.sendToUser(notif.getUserId(), notif.getTitle(), notif.getMessage());
         }
 
         // Priority 2: FCM (native mobile app)
