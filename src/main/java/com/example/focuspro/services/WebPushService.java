@@ -78,7 +78,9 @@ public class WebPushService {
 
     /**
      * Send a push notification to all of a user's browser subscriptions.
-     * Returns true only if at least one subscription existed and was attempted.
+     * Returns true ONLY if at least one subscription was successfully delivered.
+     * Returns false if there are no subscriptions, or if every send attempt failed —
+     * so the caller can fall back to polling instead of silently losing the notification.
      */
     public boolean sendToUser(int userId, String title, String body) {
         if (!enabled) return false;
@@ -87,13 +89,23 @@ public class WebPushService {
             log.warn("Web push: no subscriptions found for user {} — falling back to polling", userId);
             return false;
         }
+        boolean anySucceeded = false;
         for (WebPushSubscription sub : subs) {
-            sendToSubscription(sub, title, body);
+            if (sendToSubscription(sub, title, body)) {
+                anySucceeded = true;
+            }
         }
-        return true;
+        if (!anySucceeded) {
+            log.warn("Web push: all send attempts failed for user {} — falling back to polling", userId);
+        }
+        return anySucceeded;
     }
 
-    private void sendToSubscription(WebPushSubscription sub, String title, String body) {
+    /**
+     * Attempt to push to a single subscription.
+     * Returns true if the push was accepted by the push service, false on any error.
+     */
+    private boolean sendToSubscription(WebPushSubscription sub, String title, String body) {
         try {
             byte[] payload = objectMapper.writeValueAsBytes(Map.of("title", title, "body", body));
             Notification notification = new Notification(
@@ -104,6 +116,7 @@ public class WebPushService {
             );
             pushService.send(notification);
             log.info("Web push sent to user {} subscription", sub.getUserId());
+            return true;
         } catch (Exception e) {
             log.warn("Web push failed for subscription {} (endpoint may be expired): {}",
                     sub.getId(), e.getMessage());
@@ -112,6 +125,7 @@ public class WebPushService {
                 subscriptionRepo.deleteByUserIdAndEndpoint(sub.getUserId(), sub.getEndpoint());
                 log.info("Removed expired web push subscription for user {}", sub.getUserId());
             }
+            return false;
         }
     }
 }
