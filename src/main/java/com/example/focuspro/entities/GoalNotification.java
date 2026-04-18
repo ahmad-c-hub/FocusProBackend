@@ -23,10 +23,10 @@ public class GoalNotification {
     @Column(name = "user_id", nullable = false)
     private int userId;
 
-    @Column(name = "goal_id", nullable = false)
-    private long goalId;
+    @Column(name = "goal_id")
+    private Long goalId; // null for manual reminders not tied to a goal
 
-    @Column(name = "goal_text", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "goal_text", columnDefinition = "TEXT")
     private String goalText;
 
     @Enumerated(EnumType.STRING)

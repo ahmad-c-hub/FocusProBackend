@@ -13,13 +13,13 @@ public interface GoalNotificationRepo extends JpaRepository<GoalNotification, Lo
 
     List<GoalNotification> findByScheduledAtBeforeAndSentFalse(LocalDateTime time);
 
-    List<GoalNotification> findByGoalIdAndSentFalse(long goalId);
+    List<GoalNotification> findByGoalIdAndSentFalse(Long goalId);
 
     @Transactional
     @Modifying
     @Query("DELETE FROM GoalNotification n WHERE n.goalId = :goalId AND n.sent = false")
-    void deleteByGoalIdAndSentFalse(long goalId);
+    void deleteByGoalIdAndSentFalse(Long goalId);
 
     @Query("SELECT COUNT(n) FROM GoalNotification n WHERE n.goalId = :goalId AND n.notificationType = 'FOLLOWUP' AND n.sent = false")
-    long countPendingFollowupsForGoal(long goalId);
+    long countPendingFollowupsForGoal(Long goalId);
 }
