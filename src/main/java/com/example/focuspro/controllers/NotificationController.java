@@ -1,5 +1,6 @@
 package com.example.focuspro.controllers;
 
+import com.example.focuspro.dtos.ManualReminderRequest;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,23 @@ public class NotificationController {
     @GetMapping("/pending")
     public ResponseEntity<List<Map<String, Object>>> getPending() {
         return ResponseEntity.ok(notificationService.getPendingForUser(currentUser().getId()));
+    }
+
+    /** User sets a manual reminder at a specific time from the coaching screen. */
+    @PostMapping("/reminder")
+    public ResponseEntity<Map<String, String>> addReminder(@RequestBody ManualReminderRequest req) {
+        if (req.getScheduledHour() < 0 || req.getScheduledHour() > 23
+                || req.getScheduledMinute() < 0 || req.getScheduledMinute() > 59) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid time"));
+        }
+        notificationService.addManualReminder(
+                currentUser().getId(),
+                req.getTitle(),
+                req.getMessage(),
+                req.getScheduledHour(),
+                req.getScheduledMinute(),
+                req.getUtcOffsetMinutes());
+        return ResponseEntity.ok(Map.of("status", "scheduled"));
     }
 
     /** Flutter web calls this after showing a polled notification so it won't repeat. */

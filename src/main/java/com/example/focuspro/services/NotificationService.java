@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -268,12 +269,15 @@ public class NotificationService {
         Users user = userRepo.findById(notif.getUserId()).orElse(null);
         if (user == null) { markSent(notif); return; }
 
-        DailyGoal goal = goalRepo.findById(notif.getGoalId()).orElse(null);
-        if (goal == null
-                || goal.getStatus() == DailyGoal.Status.DONE
-                || goal.getStatus() == DailyGoal.Status.SKIPPED) {
-            markSent(notif);
-            return;
+        // For goal-linked notifications: skip if goal is already done/skipped
+        if (notif.getGoalId() != null) {
+            DailyGoal goal = goalRepo.findById(notif.getGoalId()).orElse(null);
+            if (goal == null
+                    || goal.getStatus() == DailyGoal.Status.DONE
+                    || goal.getStatus() == DailyGoal.Status.SKIPPED) {
+                markSent(notif);
+                return;
+            }
         }
 
         boolean delivered = false;
@@ -296,9 +300,12 @@ public class NotificationService {
         // Priority 3: leave pending — Flutter web polling will show it while tab is open
         if (!delivered) return;
 
-        // Schedule AI follow-up if this was a CHECKIN
-        if (notif.getNotificationType() == GoalNotification.Type.CHECKIN) {
-            if (notificationRepo.countPendingFollowupsForGoal(notif.getGoalId()) < MAX_FOLLOWUPS_PER_GOAL) {
+        // Schedule AI follow-up if this was a CHECKIN on a goal-linked notification
+        if (notif.getNotificationType() == GoalNotification.Type.CHECKIN
+                && notif.getGoalId() != null) {
+            DailyGoal goal = goalRepo.findById(notif.getGoalId()).orElse(null);
+            if (goal != null
+                    && notificationRepo.countPendingFollowupsForGoal(notif.getGoalId()) < MAX_FOLLOWUPS_PER_GOAL) {
                 scheduleFollowup(goal, user);
             }
         }
@@ -339,17 +346,20 @@ public class NotificationService {
                 .stream()
                 .filter(n -> n.getUserId() == userId)
                 .map(n -> {
-                    DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
-                    if (goal == null || goal.getStatus() == DailyGoal.Status.DONE
-                            || goal.getStatus() == DailyGoal.Status.SKIPPED) {
-                        markSent(n); return null;
+                    // For goal-linked notifications skip if goal is done/skipped
+                    if (n.getGoalId() != null) {
+                        DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
+                        if (goal == null || goal.getStatus() == DailyGoal.Status.DONE
+                                || goal.getStatus() == DailyGoal.Status.SKIPPED) {
+                            markSent(n); return null;
+                        }
                     }
                     Map<String, Object> m = new java.util.HashMap<>();
                     m.put("id",      n.getId());
                     m.put("title",   n.getTitle());
                     m.put("message", n.getMessage());
                     m.put("type",    n.getNotificationType().name());
-                    m.put("goalId",  n.getGoalId());
+                    if (n.getGoalId() != null) m.put("goalId", n.getGoalId());
                     return m;
                 })
                 .filter(Objects::nonNull)
@@ -359,7 +369,8 @@ public class NotificationService {
     public void acknowledge(long notificationId, int userId) {
         notificationRepo.findById(notificationId).ifPresent(n -> {
             if (n.getUserId() != userId) return;
-            if (n.getNotificationType() == GoalNotification.Type.CHECKIN) {
+            if (n.getNotificationType() == GoalNotification.Type.CHECKIN
+                    && n.getGoalId() != null) {
                 DailyGoal goal = goalRepo.findById(n.getGoalId()).orElse(null);
                 Users user = userRepo.findById(userId).orElse(null);
                 if (goal != null && user != null
@@ -371,6 +382,39 @@ public class NotificationService {
             }
             markSent(n);
         });
+    }
+
+    // ── Manual reminders ─────────────────────────────────────────────────────
+
+    public void addManualReminder(int userId, String title, String message,
+                                  int scheduledHour, int scheduledMinute,
+                                  int utcOffsetMinutes) {
+        ZoneOffset userZone = ZoneOffset.ofTotalSeconds(utcOffsetMinutes * 60);
+        LocalDateTime userNow = LocalDateTime.now(userZone);
+
+        // Build the scheduled time in user's local timezone for today (or tomorrow)
+        LocalDateTime scheduledLocal = userNow.toLocalDate()
+                .atTime(scheduledHour, scheduledMinute);
+        if (!scheduledLocal.isAfter(userNow.minusMinutes(1))) {
+            scheduledLocal = scheduledLocal.plusDays(1); // past time → schedule for tomorrow
+        }
+
+        // Convert user local scheduled time to server UTC for storage
+        long minutesFromNow = java.time.Duration.between(userNow, scheduledLocal).toMinutes();
+        minutesFromNow = Math.max(1, minutesFromNow);
+
+        GoalNotification n = new GoalNotification();
+        n.setUserId(userId);
+        n.setGoalId(null);
+        n.setGoalText(null);
+        n.setNotificationType(GoalNotification.Type.REMINDER);
+        n.setTitle(title == null || title.isBlank() ? "FocusPro Reminder" : title);
+        n.setMessage(message == null || message.isBlank() ? "Time to check on your goal!" : message);
+        n.setScheduledAt(LocalDateTime.now().plusMinutes(minutesFromNow));
+        n.setSent(false);
+        notificationRepo.save(n);
+        log.info("[Notifications] Manual reminder saved for user {} at {} ({}min from now)",
+                userId, n.getScheduledAt(), minutesFromNow);
     }
 
     // ── Token management ──────────────────────────────────────────────────────
