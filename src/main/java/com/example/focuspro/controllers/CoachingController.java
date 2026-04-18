@@ -47,8 +47,10 @@ public class CoachingController {
 
     // POST /coaching/evening — start evening check-in
     @PostMapping("/evening")
-    public CoachingMessageResponse startEveningCheckin() {
-        return coachingService.startEveningCheckin();
+    public CoachingMessageResponse startEveningCheckin(
+            @RequestBody(required = false) DailyGoalRequest req) {
+        int offset = (req != null) ? req.getUtcOffsetMinutes() : 0;
+        return coachingService.startEveningCheckin(offset);
     }
 
     // GET /coaching/goals/today — get today's goals

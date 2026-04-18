@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -38,7 +39,9 @@ public class CoachingService {
 
     public CoachingMessageResponse setDailyGoals(List<String> goalTexts, int utcOffsetMinutes) {
         Users user = currentUser();
-        LocalDate today = LocalDate.now();
+        // Use the user's local date (not UTC server date) so goals are tagged to the right day
+        ZoneOffset userZone = ZoneOffset.ofTotalSeconds(utcOffsetMinutes * 60);
+        LocalDate today = LocalDate.now(userZone);
 
         // Delete any PENDING goals for today (allow reset)
         List<DailyGoal> pendingToday = dailyGoalRepo.findByUserIdAndGoalDateAndStatus(
@@ -57,7 +60,7 @@ public class CoachingService {
             newGoals.add(dailyGoalRepo.save(goal));
         }
 
-        // Open or reuse MORNING CoachingSession
+        // Open or reuse MORNING CoachingSession (using user's local date)
         CoachingSession session = coachingSessionRepo
                 .findByUserIdAndSessionDateAndSessionType(user.getId(), today, CoachingSession.SessionType.MORNING)
                 .orElseGet(() -> {
@@ -153,9 +156,10 @@ public class CoachingService {
 
     // ── c) Start evening check-in ─────────────────────────────────────────────
 
-    public CoachingMessageResponse startEveningCheckin() {
+    public CoachingMessageResponse startEveningCheckin(int utcOffsetMinutes) {
         Users user = currentUser();
-        LocalDate today = LocalDate.now();
+        ZoneOffset userZone = ZoneOffset.ofTotalSeconds(utcOffsetMinutes * 60);
+        LocalDate today = LocalDate.now(userZone);
 
         List<DailyGoal> goals = dailyGoalRepo.findByUserIdAndGoalDate(user.getId(), today);
 
@@ -170,7 +174,7 @@ public class CoachingService {
                 : goals.stream().map(g -> String.format("- \"%s\" → %s", g.getGoalText(), g.getStatus()))
                         .collect(Collectors.joining("\n"));
 
-        // Find or create EVENING session
+        // Find or create EVENING session (using user's local date)
         CoachingSession session = coachingSessionRepo
                 .findByUserIdAndSessionDateAndSessionType(user.getId(), today, CoachingSession.SessionType.EVENING)
                 .orElseGet(() -> {
