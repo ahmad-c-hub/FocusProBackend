@@ -169,6 +169,10 @@ public class NotificationService {
         for (JsonNode n : notifs) {
             int mins = n.path("minutesFromNow").asInt(0);
             if (mins < 10) continue;
+            if (mins > 720) {
+                log.warn("[Notifications] AI returned unreasonably large minutesFromNow={} — skipping", mins);
+                continue;
+            }
             String typeStr = n.path("type").asText("CHECKIN");
             GoalNotification.Type type;
             try { type = GoalNotification.Type.valueOf(typeStr); }
