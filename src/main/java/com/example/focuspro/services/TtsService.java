@@ -7,6 +7,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Base64;
 import java.util.Map;
 
 @Service
@@ -14,62 +15,58 @@ public class TtsService {
 
     private static final Logger log = LoggerFactory.getLogger(TtsService.class);
 
-    @Value("${elevenlabs.api.key:}")
+    @Value("${google.tts.api.key:}")
     private String apiKey;
-
-    @Value("${elevenlabs.voice.id:}")
-    private String voiceId;
 
     private final RestTemplate rest = new RestTemplate();
 
     public byte[] synthesize(String text, double speed) {
         if (apiKey == null || apiKey.isBlank()) {
-            log.warn("ElevenLabs API key not configured");
+            log.warn("Google TTS API key not configured");
             return null;
         }
 
         if (text.length() > 5000) text = text.substring(0, 5000);
 
         HttpHeaders headers = new HttpHeaders();
-        headers.set("xi-api-key", apiKey);
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Accept", "audio/mpeg");
-
-        if (voiceId == null || voiceId.isBlank()) {
-            log.warn("ElevenLabs voice ID not configured");
-            return null;
-        }
 
         Map<String, Object> payload = Map.of(
-                "text", text,
-                "model_id", "eleven_multilingual_v2",
-                "voice_settings", Map.of(
-                        "stability", 0.45,
-                        "similarity_boost", 0.80,
-                        "style", 0.35,
-                        "use_speaker_boost", true
+                "input", Map.of("text", text),
+                "voice", Map.of(
+                        "languageCode", "en-US",
+                        "name", "en-US-Neural2-D",
+                        "ssmlGender", "MALE"
+                ),
+                "audioConfig", Map.of(
+                        "audioEncoding", "MP3",
+                        "speakingRate", Math.max(0.25, Math.min(4.0, speed))
                 )
         );
 
-        String url = "https://api.elevenlabs.io/v1/text-to-speech/" + voiceId + "?output_format=mp3_44100_128";
-        ResponseEntity<byte[]> resp;
+        String url = "https://texttospeech.googleapis.com/v1/text:synthesize?key=" + apiKey;
+        ResponseEntity<Map> resp;
         try {
             resp = rest.exchange(
                     url,
                     HttpMethod.POST,
                     new HttpEntity<>(payload, headers),
-                    byte[].class
+                    Map.class
             );
         } catch (Exception e) {
-            log.error("ElevenLabs request failed: {}", e.getMessage());
+            log.error("Google TTS request failed: {}", e.getMessage());
             return null;
         }
 
         if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
-            log.info("ElevenLabs TTS OK — {} bytes returned", resp.getBody().length);
-            return resp.getBody();
+            String audioContent = (String) resp.getBody().get("audioContent");
+            if (audioContent != null) {
+                byte[] bytes = Base64.getDecoder().decode(audioContent);
+                log.info("Google TTS OK — {} bytes", bytes.length);
+                return bytes;
+            }
         }
-        log.warn("ElevenLabs returned status {}", resp.getStatusCode());
+        log.warn("Google TTS returned status {}", resp.getStatusCode());
         return null;
     }
 }
