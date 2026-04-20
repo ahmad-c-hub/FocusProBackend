@@ -216,11 +216,9 @@ public class FocusRoomService {
 
     // ── Smart Matching ────────────────────────────────────────────────────────
     public List<RoomMatchDTO> findMatchForUser(String sessionGoal, Users currentUser) {
-        // a) Get all active room IDs (at least 1 member present)
-        List<Long> activeRoomIds = presence.entrySet().stream()
-                .filter(e -> !e.getValue().isEmpty())
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
+        // a) Load ALL rooms from DB — matching should work even for empty rooms.
+        //    We also read the presence map so we can show live member count/goals.
+        List<FocusRoom> allRooms = roomRepo.findAll();
 
         // c) Load current user's habits
         List<Habit> habits = habitRepo.findByUserId(currentUser.getId());
@@ -249,52 +247,42 @@ public class FocusRoomService {
                     .collect(Collectors.joining(", "));
         }
 
-        // Handle no active rooms
-        if (activeRoomIds.isEmpty()) {
+        if (allRooms.isEmpty()) {
             activityLogService.log(currentUser.getId(), "FOCUS_ROOM_MATCH_REQUESTED", sessionGoal);
-            RoomMatchDTO suggestion = buildNewRoomSuggestion(
-                    "No active rooms right now. Create a new focused room for: " + sessionGoal);
-            return List.of(suggestion);
+            return List.of(buildNewRoomSuggestion(
+                    "No rooms exist yet. Create the first focused room for: " + sessionGoal));
         }
 
-        // b) Collect member goals and room entities for each active room
+        // b) Build room context block for AI — include ALL rooms, mark active ones
         StringBuilder roomsBlock = new StringBuilder();
         Map<Long, List<String>> roomGoalsMap = new HashMap<>();
         Map<Long, FocusRoom> roomEntityMap = new HashMap<>();
 
-        for (Long roomId : activeRoomIds) {
-            FocusRoom room = roomRepo.findById(roomId).orElse(null);
-            if (room == null) continue;
-            roomEntityMap.put(roomId, room);
+        for (FocusRoom room : allRooms) {
+            roomEntityMap.put(room.getId(), room);
 
-            Map<String, RoomMemberDTO> members = presence.getOrDefault(roomId, new HashMap<>());
-            List<String> goals = members.values().stream()
+            Map<String, RoomMemberDTO> liveMembers = presence.getOrDefault(room.getId(), new HashMap<>());
+            int liveCount = liveMembers.size();
+
+            List<String> goals = liveMembers.values().stream()
                     .map(RoomMemberDTO::getGoal)
                     .filter(g -> g != null && !g.isBlank())
                     .collect(Collectors.toList());
-            roomGoalsMap.put(roomId, goals);
+            roomGoalsMap.put(room.getId(), goals);
 
-            // Include name, category, description AND member goals so the AI
-            // can match on the room's identity even when members have no goals set.
             String descPart = (room.getDescription() != null && !room.getDescription().isBlank())
-                    ? room.getDescription()
-                    : "none";
+                    ? room.getDescription() : "none";
             String goalsPart = goals.isEmpty() ? "none" : String.join("; ", goals);
+            String status = liveCount > 0 ? "ACTIVE (" + liveCount + " members live)" : "EMPTY (0 members right now)";
 
             roomsBlock.append(String.format(
-                    "Room ID: %d | Name: \"%s\" | Category: %s | Description: %s | Members: %d | Member goals: [%s]\n",
-                    roomId,
+                    "Room ID: %d | Name: \"%s\" | Category: %s | Description: %s | Status: %s | Member goals: [%s]\n",
+                    room.getId(),
                     room.getName(),
                     room.getCategory() != null ? room.getCategory() : "Study",
                     descPart,
-                    members.size(),
+                    status,
                     goalsPart));
-        }
-
-        if (roomEntityMap.isEmpty()) {
-            activityLogService.log(currentUser.getId(), "FOCUS_ROOM_MATCH_REQUESTED", sessionGoal);
-            return List.of(buildNewRoomSuggestion(
-                    "No suitable rooms found. Create a new room for: " + sessionGoal));
         }
 
         // e) Build AI prompt
