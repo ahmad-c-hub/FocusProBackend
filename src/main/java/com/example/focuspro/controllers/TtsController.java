@@ -19,13 +19,9 @@ public class TtsController {
         String text = (String) body.getOrDefault("text", "");
         if (text.isBlank()) return ResponseEntity.badRequest().build();
 
-        double speed = body.containsKey("speed")
-                ? ((Number) body.get("speed")).doubleValue()
-                : 1.0;
-
         byte[] audio;
         try {
-            audio = ttsService.synthesize(text, speed);
+            audio = ttsService.synthesize(text);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY).build();
         }

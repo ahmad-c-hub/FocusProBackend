@@ -9,6 +9,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.Base64;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class TtsService {
@@ -19,14 +20,22 @@ public class TtsService {
     private String apiKey;
 
     private final RestTemplate rest = new RestTemplate();
+    private final Map<Integer, byte[]> audioCache = new ConcurrentHashMap<>();
 
-    public byte[] synthesize(String text, double speed) {
+    public byte[] synthesize(String text) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("Google TTS API key not configured");
             return null;
         }
 
         if (text.length() > 5000) text = text.substring(0, 5000);
+
+        int cacheKey = text.hashCode();
+        byte[] cached = audioCache.get(cacheKey);
+        if (cached != null) {
+            log.info("TTS cache hit — {} bytes", cached.length);
+            return cached;
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -40,7 +49,7 @@ public class TtsService {
                 ),
                 "audioConfig", Map.of(
                         "audioEncoding", "MP3",
-                        "speakingRate", Math.max(0.25, Math.min(4.0, speed))
+                        "speakingRate", 1.0
                 )
         );
 
@@ -62,7 +71,8 @@ public class TtsService {
             String audioContent = (String) resp.getBody().get("audioContent");
             if (audioContent != null) {
                 byte[] bytes = Base64.getDecoder().decode(audioContent);
-                log.info("Google TTS OK — {} bytes", bytes.length);
+                audioCache.put(cacheKey, bytes);
+                log.info("Google TTS OK — {} bytes cached", bytes.length);
                 return bytes;
             }
         }
