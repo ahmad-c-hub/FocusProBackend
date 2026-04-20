@@ -3,6 +3,10 @@ package com.example.focuspro.controllers;
 import com.example.focuspro.dtos.CreateRoomRequest;
 import com.example.focuspro.dtos.FocusRoomDTO;
 import com.example.focuspro.dtos.JoinRoomRequest;
+import com.example.focuspro.dtos.MatchRequest;
+import com.example.focuspro.dtos.RoomMatchDTO;
+import com.example.focuspro.entities.Users;
+import com.example.focuspro.repos.UserRepo;
 import com.example.focuspro.services.FocusRoomService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +23,9 @@ public class FocusRoomController {
 
     @Autowired
     private FocusRoomService roomService;
+
+    @Autowired
+    private UserRepo userRepo;
 
     // GET /rooms — list all rooms (optional ?category=Study filter)
     @GetMapping
@@ -79,6 +86,25 @@ public class FocusRoomController {
             @AuthenticationPrincipal UserDetails userDetails) {
         roomService.leaveRoom(id, userDetails.getUsername());
         return ResponseEntity.ok().build();
+    }
+
+    // POST /rooms/match — AI smart matching
+    @PostMapping("/match")
+    public ResponseEntity<?> matchRoom(
+            @RequestBody MatchRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            Users user = userRepo.findByUsername(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+            List<RoomMatchDTO> results = roomService.findMatchForUser(request.getSessionGoal(), user);
+            return ResponseEntity.ok(results);
+        } catch (RuntimeException e) {
+            if (e.getMessage() != null && e.getMessage().contains("AI API call failed")) {
+                return ResponseEntity.status(503)
+                        .body(Map.of("error", "AI matching service temporarily unavailable. Please try again."));
+            }
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 
     // DELETE /rooms/{id} — only the room creator is allowed

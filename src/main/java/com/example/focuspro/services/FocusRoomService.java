@@ -2,12 +2,19 @@ package com.example.focuspro.services;
 
 import com.example.focuspro.dtos.CreateRoomRequest;
 import com.example.focuspro.dtos.FocusRoomDTO;
+import com.example.focuspro.dtos.RoomMatchDTO;
 import com.example.focuspro.dtos.RoomMemberDTO;
+import com.example.focuspro.entities.ActivityLog;
 import com.example.focuspro.entities.FocusRoom;
+import com.example.focuspro.entities.Habit;
 import com.example.focuspro.entities.Users;
+import com.example.focuspro.repos.ActivityLogRepo;
 import com.example.focuspro.repos.FocusRoomRepo;
+import com.example.focuspro.repos.HabitRepo;
 import com.example.focuspro.repos.RoomMessageRepository;
 import com.example.focuspro.repos.UserRepo;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -28,6 +35,9 @@ public class FocusRoomService {
     @Autowired private RoomMessageRepository messageRepo;
     @Autowired private UserRepo userRepo;
     @Autowired private ActivityLogService activityLogService;
+    @Autowired private AiService aiService;
+    @Autowired private HabitRepo habitRepo;
+    @Autowired private ActivityLogRepo activityLogRepo;
 
     // roomId -> (username -> member info)
     private final Map<Long, Map<String, RoomMemberDTO>> presence = new ConcurrentHashMap<>();
@@ -202,6 +212,187 @@ public class FocusRoomService {
     // ── Presence: get current members ─────────────────────────────────────────
     public List<RoomMemberDTO> getMembers(Long roomId) {
         return new ArrayList<>(presence.getOrDefault(roomId, new HashMap<>()).values());
+    }
+
+    // ── Smart Matching ────────────────────────────────────────────────────────
+    public List<RoomMatchDTO> findMatchForUser(String sessionGoal, Users currentUser) {
+        // a) Get all active room IDs (at least 1 member present)
+        List<Long> activeRoomIds = presence.entrySet().stream()
+                .filter(e -> !e.getValue().isEmpty())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+
+        // c) Load current user's habits
+        List<Habit> habits = habitRepo.findByUserId(currentUser.getId());
+        String habitTitles = habits.isEmpty()
+                ? "none"
+                : habits.stream().map(Habit::getTitle).collect(Collectors.joining(", "));
+
+        // d) Load last 20 FOCUS_ROOM_JOINED logs to derive typical study hours
+        List<ActivityLog> joinLogs = activityLogRepo
+                .findTop20ByUserIdAndActivityTypeOrderByActivityDateDesc(
+                        currentUser.getId(), "FOCUS_ROOM_JOINED");
+
+        String studyHoursDescription;
+        if (joinLogs.isEmpty()) {
+            studyHoursDescription = "no history yet";
+        } else {
+            Map<Integer, Long> hourCounts = joinLogs.stream()
+                    .filter(l -> l.getActivityDate() != null)
+                    .collect(Collectors.groupingBy(
+                            l -> l.getActivityDate().getHour(),
+                            Collectors.counting()));
+            studyHoursDescription = hourCounts.entrySet().stream()
+                    .sorted(Map.Entry.<Integer, Long>comparingByValue().reversed())
+                    .limit(3)
+                    .map(e -> String.format("%d:00-%d:00 (%d sessions)", e.getKey(), e.getKey() + 1, e.getValue()))
+                    .collect(Collectors.joining(", "));
+        }
+
+        // Handle no active rooms
+        if (activeRoomIds.isEmpty()) {
+            activityLogService.log(currentUser.getId(), "FOCUS_ROOM_MATCH_REQUESTED", sessionGoal);
+            RoomMatchDTO suggestion = buildNewRoomSuggestion(
+                    "No active rooms right now. Create a new focused room for: " + sessionGoal);
+            return List.of(suggestion);
+        }
+
+        // b) Collect member goals and room entities for each active room
+        StringBuilder roomsBlock = new StringBuilder();
+        Map<Long, List<String>> roomGoalsMap = new HashMap<>();
+        Map<Long, FocusRoom> roomEntityMap = new HashMap<>();
+
+        for (Long roomId : activeRoomIds) {
+            FocusRoom room = roomRepo.findById(roomId).orElse(null);
+            if (room == null) continue;
+            roomEntityMap.put(roomId, room);
+
+            Map<String, RoomMemberDTO> members = presence.getOrDefault(roomId, new HashMap<>());
+            List<String> goals = members.values().stream()
+                    .map(RoomMemberDTO::getGoal)
+                    .filter(g -> g != null && !g.isBlank())
+                    .collect(Collectors.toList());
+            roomGoalsMap.put(roomId, goals);
+
+            roomsBlock.append(String.format(
+                    "Room ID: %d, Name: \"%s\", Members: %d, Goals: [%s]\n",
+                    roomId, room.getName(), members.size(),
+                    goals.isEmpty() ? "no goals set" : String.join("; ", goals)));
+        }
+
+        if (roomEntityMap.isEmpty()) {
+            activityLogService.log(currentUser.getId(), "FOCUS_ROOM_MATCH_REQUESTED", sessionGoal);
+            return List.of(buildNewRoomSuggestion(
+                    "No suitable rooms found. Create a new room for: " + sessionGoal));
+        }
+
+        // e) Build AI prompt
+        String systemPrompt = """
+                You are a focus room matching AI inside FocusPro, a productivity app.
+                Analyze which focus room best matches the user's session goal, habits, and study time patterns.
+                Consider semantic similarity of goals — not just keyword matching.
+                Return ONLY valid JSON — no markdown fences, no explanation, no extra text.
+                """;
+
+        String userPrompt = String.format("""
+                User session goal: "%s"
+                User habit titles: %s
+                User's typical study hours: %s
+
+                Available rooms:
+                %s
+
+                Return a JSON array ranked by match quality. Each object must have exactly these fields:
+                {
+                  "roomId": <number>,
+                  "matchScore": <number between 0 and 100>,
+                  "matchReason": "<one sentence explaining why this room matches or doesn't match>"
+                }
+
+                Rules:
+                - Compare the user's goal semantically against room member goals
+                - Factor in time pattern overlap if the user has study history
+                - Factor in habit title overlap with room focus topics
+                - If no room scores above 40, still return all rooms but set the lowest-scoring one's matchReason to explain why the user should create a new room
+                - Sort descending by matchScore
+                - Return ONLY the JSON array, nothing else
+                """,
+                sessionGoal,
+                habitTitles,
+                studyHoursDescription,
+                roomsBlock.toString());
+
+        // f) Call AI
+        String rawJson = aiService.callAiApiPublic(systemPrompt, userPrompt);
+
+        // g) Parse AI response and merge with room data
+        ObjectMapper mapper = new ObjectMapper();
+        List<RoomMatchDTO> results = new ArrayList<>();
+        try {
+            JsonNode array = mapper.readTree(rawJson);
+            boolean anyAbove40 = false;
+
+            for (JsonNode node : array) {
+                long roomId = node.path("roomId").asLong();
+                double score = node.path("matchScore").asDouble();
+                String reason = node.path("matchReason").asText();
+
+                FocusRoom room = roomEntityMap.get(roomId);
+                if (room == null) continue;
+
+                if (score >= 40) anyAbove40 = true;
+
+                Map<String, RoomMemberDTO> members = presence.getOrDefault(roomId, new HashMap<>());
+
+                RoomMatchDTO dto = new RoomMatchDTO();
+                dto.setRoomId(roomId);
+                dto.setRoomName(room.getName());
+                dto.setRoomEmoji(room.getEmoji());
+                dto.setMemberCount(members.size());
+                dto.setMatchScore(score);
+                dto.setMatchReason(reason);
+                dto.setMemberGoals(roomGoalsMap.getOrDefault(roomId, new ArrayList<>()));
+                dto.setNewRoomSuggestion(false);
+                results.add(dto);
+            }
+
+            // If no room scored above 40, prepend a "create new room" suggestion
+            if (!anyAbove40 && !results.isEmpty()) {
+                String reason = results.get(0).getMatchReason();
+                RoomMatchDTO newRoom = buildNewRoomSuggestion(
+                        "None of the active rooms closely match your goal. " +
+                        "Consider creating a new room. Closest match note: " + reason);
+                results.add(0, newRoom);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse AI matching response: " + e.getMessage(), e);
+        }
+
+        if (results.isEmpty()) {
+            results.add(buildNewRoomSuggestion(
+                    "No matching rooms found for your goal. Create a focused room to find your tribe."));
+        }
+
+        // h) Sort by matchScore descending (new room suggestion always leads if present)
+        results.sort((a, b) -> Double.compare(b.getMatchScore(), a.getMatchScore()));
+
+        // i) Log the match request
+        activityLogService.log(currentUser.getId(), "FOCUS_ROOM_MATCH_REQUESTED", sessionGoal);
+
+        return results;
+    }
+
+    private RoomMatchDTO buildNewRoomSuggestion(String reason) {
+        RoomMatchDTO dto = new RoomMatchDTO();
+        dto.setRoomId(null);
+        dto.setRoomName("Create a new room");
+        dto.setRoomEmoji("✨");
+        dto.setMemberCount(0);
+        dto.setMatchScore(100.0);
+        dto.setMatchReason(reason);
+        dto.setMemberGoals(new ArrayList<>());
+        dto.setNewRoomSuggestion(true);
+        return dto;
     }
 
     // ── Scheduled: auto-delete rooms inactive for 2+ days ─────────────────────

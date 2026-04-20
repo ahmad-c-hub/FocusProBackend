@@ -8,4 +8,6 @@ import java.util.List;
 public interface ActivityLogRepo extends JpaRepository<ActivityLog, Long> {
 
     List<ActivityLog> findByUserIdOrderByActivityDateDesc(int userId);
+
+    List<ActivityLog> findTop20ByUserIdAndActivityTypeOrderByActivityDateDesc(int userId, String activityType);
 }
