@@ -35,24 +35,38 @@ public class TtsService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("Accept", "audio/mpeg");
 
+        if (voiceId == null || voiceId.isBlank()) {
+            log.warn("ElevenLabs voice ID not configured");
+            return null;
+        }
+
         Map<String, Object> payload = Map.of(
                 "text", text,
-                "model_id", "eleven_turbo_v2",
+                "model_id", "eleven_multilingual_v2",
                 "voice_settings", Map.of(
-                        "stability", 0.5,
-                        "similarity_boost", 0.75
+                        "stability", 0.45,
+                        "similarity_boost", 0.80,
+                        "style", 0.35,
+                        "use_speaker_boost", true
                 )
         );
 
-        String url = "https://api.elevenlabs.io/v1/text-to-speech/" + voiceId;
-        ResponseEntity<byte[]> resp = rest.exchange(
-                url,
-                HttpMethod.POST,
-                new HttpEntity<>(payload, headers),
-                byte[].class
-        );
+        String url = "https://api.elevenlabs.io/v1/text-to-speech/" + voiceId + "?output_format=mp3_44100_128";
+        ResponseEntity<byte[]> resp;
+        try {
+            resp = rest.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(payload, headers),
+                    byte[].class
+            );
+        } catch (Exception e) {
+            log.error("ElevenLabs request failed: {}", e.getMessage());
+            return null;
+        }
 
         if (resp.getStatusCode() == HttpStatus.OK && resp.getBody() != null) {
+            log.info("ElevenLabs TTS OK — {} bytes returned", resp.getBody().length);
             return resp.getBody();
         }
         log.warn("ElevenLabs returned status {}", resp.getStatusCode());
