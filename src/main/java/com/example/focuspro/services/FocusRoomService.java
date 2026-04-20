@@ -274,10 +274,21 @@ public class FocusRoomService {
                     .collect(Collectors.toList());
             roomGoalsMap.put(roomId, goals);
 
+            // Include name, category, description AND member goals so the AI
+            // can match on the room's identity even when members have no goals set.
+            String descPart = (room.getDescription() != null && !room.getDescription().isBlank())
+                    ? room.getDescription()
+                    : "none";
+            String goalsPart = goals.isEmpty() ? "none" : String.join("; ", goals);
+
             roomsBlock.append(String.format(
-                    "Room ID: %d, Name: \"%s\", Members: %d, Goals: [%s]\n",
-                    roomId, room.getName(), members.size(),
-                    goals.isEmpty() ? "no goals set" : String.join("; ", goals)));
+                    "Room ID: %d | Name: \"%s\" | Category: %s | Description: %s | Members: %d | Member goals: [%s]\n",
+                    roomId,
+                    room.getName(),
+                    room.getCategory() != null ? room.getCategory() : "Study",
+                    descPart,
+                    members.size(),
+                    goalsPart));
         }
 
         if (roomEntityMap.isEmpty()) {
@@ -289,8 +300,20 @@ public class FocusRoomService {
         // e) Build AI prompt
         String systemPrompt = """
                 You are a focus room matching AI inside FocusPro, a productivity app.
-                Analyze which focus room best matches the user's session goal, habits, and study time patterns.
-                Consider semantic similarity of goals — not just keyword matching.
+                Your job is to rank focus rooms by how well they match the user's session goal.
+
+                MATCHING PRIORITY (apply in this order):
+                1. Room name and description — these are the strongest signals. If the room is named
+                   "Math" and the user wants to study math, that is an excellent match (score 80+).
+                   Treat the room name as a topic label; "Math" means the room is for mathematics.
+                2. Member goals — if members have set goals, compare them semantically to the user's goal.
+                3. Room category — "Study" rooms match academic goals; "Work" rooms match professional goals, etc.
+                4. User habits — bonus signal if the user's habit titles relate to the room topic.
+                5. Time patterns — bonus signal if the user's usual hours overlap with the room's activity.
+
+                A room should NEVER score below 30 just because members have not set goals.
+                Score based on what the room IS (name + category + description), not only on member goals.
+
                 Return ONLY valid JSON — no markdown fences, no explanation, no extra text.
                 """;
 
@@ -302,20 +325,21 @@ public class FocusRoomService {
                 Available rooms:
                 %s
 
-                Return a JSON array ranked by match quality. Each object must have exactly these fields:
+                Return a JSON array ranked by match quality. Every room must appear. Each object:
                 {
                   "roomId": <number>,
-                  "matchScore": <number between 0 and 100>,
-                  "matchReason": "<one sentence explaining why this room matches or doesn't match>"
+                  "matchScore": <number 0-100>,
+                  "matchReason": "<one concise sentence: why does or doesn't this room match the user's goal>"
                 }
 
-                Rules:
-                - Compare the user's goal semantically against room member goals
-                - Factor in time pattern overlap if the user has study history
-                - Factor in habit title overlap with room focus topics
-                - If no room scores above 40, still return all rooms but set the lowest-scoring one's matchReason to explain why the user should create a new room
-                - Sort descending by matchScore
-                - Return ONLY the JSON array, nothing else
+                Scoring guide:
+                - 80-100: room name/description directly matches the user's goal topic
+                - 60-79:  related topic, same broad subject area
+                - 40-59:  loosely related or same category
+                - 20-39:  different topic but same general activity type (e.g. both are studying)
+                - 0-19:   completely unrelated
+
+                Sort descending by matchScore. Return ONLY the JSON array, nothing else.
                 """,
                 sessionGoal,
                 habitTitles,
@@ -340,7 +364,7 @@ public class FocusRoomService {
                 FocusRoom room = roomEntityMap.get(roomId);
                 if (room == null) continue;
 
-                if (score >= 40) anyAbove40 = true;
+                if (score >= 30) anyAbove40 = true;
 
                 Map<String, RoomMemberDTO> members = presence.getOrDefault(roomId, new HashMap<>());
 
