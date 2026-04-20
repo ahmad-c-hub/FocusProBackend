@@ -17,7 +17,7 @@ public class TtsService {
     @Value("${elevenlabs.api.key:}")
     private String apiKey;
 
-    @Value("${ELEVENLABS_VOICE_ID:}")
+    @Value("${elevenlabs.voice.id:}")
     private String voiceId;
 
     private final RestTemplate rest = new RestTemplate();
