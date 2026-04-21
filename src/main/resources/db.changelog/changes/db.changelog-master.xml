@@ -15,5 +15,7 @@
     <include file="changes/009-create-focus-rooms-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/016-create-daily-goals-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/017-create-coaching-sessions-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/023-create-focus-schedule-table.xml" relativeToChangelogFile="true"/>
+    <include file="changes/024-create-lock-in-session-table.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

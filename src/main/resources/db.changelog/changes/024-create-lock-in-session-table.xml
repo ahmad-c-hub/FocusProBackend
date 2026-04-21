@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="024-create-lock-in-session-table" author="abd">
+
+        <createTable tableName="lock_in_sessions">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="INT">
+                <constraints nullable="false"
+                             foreignKeyName="fk_lock_in_sessions_user"
+                             references="users(id)"/>
+            </column>
+
+            <column name="schedule_id" type="BIGINT"/>
+
+            <column name="session_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="started_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="prep_ends_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="scheduled_ends_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="ended_at" type="TIMESTAMP"/>
+
+            <column name="ended_early" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="linked_coaching_session_id" type="BIGINT"/>
+        </createTable>
+
+        <addAutoIncrement tableName="lock_in_sessions"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <rollback>
+            <dropTable tableName="lock_in_sessions"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
