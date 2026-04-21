@@ -35,6 +35,12 @@ public class BookController {
         return bookService.getBooksByDifficulty(level);
     }
 
+    // GET /book/by-id/{id}
+    @GetMapping("/by-id/{id}")
+    public BookDTO getBookById(@PathVariable Integer id) {
+        return bookService.getBookById(id);
+    }
+
     // GET /book/{title}
     @GetMapping("/{title}")
     public BookDTO getBookByTitle(@PathVariable String title) {
