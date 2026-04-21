@@ -53,6 +53,12 @@ public class BookService {
                 .toList();
     }
 
+    public BookDTO getBookById(Integer id) {
+        Book book = bookRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Book not found: " + id));
+        return toBookDTO(book);
+    }
+
     public BookDTO addBook(Book book) {
         Book saved = bookRepo.save(book);
         return toBookDTO(saved);
