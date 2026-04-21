@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="023-create-focus-schedule-table" author="abd">
+
+        <createTable tableName="focus_schedules">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="INT">
+                <constraints nullable="false"
+                             foreignKeyName="fk_focus_schedules_user"
+                             references="users(id)"/>
+            </column>
+
+            <column name="schedule_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="scheduled_time" type="VARCHAR(5)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="duration_minutes" type="INT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="prep_timer_minutes" type="INT" defaultValueNumeric="5">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="is_recurring" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="days_of_week" type="VARCHAR(30)"/>
+
+            <column name="is_active" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP"/>
+
+            <column name="last_triggered_at" type="TIMESTAMP"/>
+        </createTable>
+
+        <addAutoIncrement tableName="focus_schedules"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <rollback>
+            <dropTable tableName="focus_schedules"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
