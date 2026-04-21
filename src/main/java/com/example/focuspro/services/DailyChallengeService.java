@@ -308,15 +308,21 @@ public class DailyChallengeService {
                 "    Example: 'Set a 25-minute focus timer, turn off all notifications, and write a 200-word\n" +
                 "    summary of one thing you want to improve this week. This trains sustained focus.'\n" +
                 "\n" +
-                "OUTPUT FORMAT — return ONLY this JSON, no markdown, no extra text:\n" +
-                "{\n" +
-                "  \"challengeType\": \"GAME or BOOK or CUSTOM\",\n" +
-                "  \"targetGameType\": \"exact_game_id or null\",\n" +
-                "  \"targetBookId\": null_or_integer,\n" +
-                "  \"challengeTitle\": \"short motivating title (max 7 words)\",\n" +
-                "  \"challengeDescription\": \"2-3 sentences explaining why this specific challenge fits this user's data and situation\",\n" +
-                "  \"weaknessArea\": \"memory or attention or speed or logic or reading\"\n" +
-                "}";
+                "OUTPUT FORMAT — return ONLY a valid JSON object. No markdown. No extra text.\n" +
+                "\n" +
+                "If challengeType is GAME, return exactly:\n" +
+                "{\"challengeType\":\"GAME\",\"targetGameType\":\"color_match\",\"targetBookId\":null," +
+                "\"challengeTitle\":\"title here\",\"challengeDescription\":\"description here\",\"weaknessArea\":\"attention\"}\n" +
+                "\n" +
+                "If challengeType is BOOK, return exactly (replace 3 with the REAL book id from the list above):\n" +
+                "{\"challengeType\":\"BOOK\",\"targetGameType\":null,\"targetBookId\":3," +
+                "\"challengeTitle\":\"title here\",\"challengeDescription\":\"description here\",\"weaknessArea\":\"reading\"}\n" +
+                "\n" +
+                "If challengeType is CUSTOM, return exactly:\n" +
+                "{\"challengeType\":\"CUSTOM\",\"targetGameType\":null,\"targetBookId\":null," +
+                "\"challengeTitle\":\"title here\",\"challengeDescription\":\"description here\",\"weaknessArea\":\"memory\"}\n" +
+                "\n" +
+                "Fill in real values. targetBookId MUST be the integer id of a book from the list above, not 3 literally.";
 
         String rawJson = aiService.callAiApiPublic(systemPrompt, userPrompt);
 
@@ -369,14 +375,9 @@ public class DailyChallengeService {
             c.setChallengeTitle(node.path("challengeTitle").asText("Today's Challenge"));
             c.setChallengeDescription(node.path("challengeDescription").asText(""));
 
-            // targetBookId — handle both number and null
-            JsonNode bookIdNode = node.path("targetBookId");
-            if (!bookIdNode.isMissingNode() && !bookIdNode.isNull()
-                    && bookIdNode.isNumber() && bookIdNode.asInt() > 0) {
-                c.setTargetBookId(bookIdNode.asInt());
-            } else {
-                c.setTargetBookId(null);
-            }
+            // targetBookId — Jackson's asInt() parses both number 3 and string "3", returns 0 on failure
+            int bookId = node.path("targetBookId").asInt(0);
+            c.setTargetBookId(bookId > 0 ? bookId : null);
 
             // If type is GAME but no valid game type, fall back to CUSTOM
             if ("GAME".equals(type) && c.getTargetGameType() == null) {
