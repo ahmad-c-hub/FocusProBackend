@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="022-create-daily-challenge-table" author="abd">
+
+        <createTable tableName="daily_challenges">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="INT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="challenge_type" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="target_game_type" type="VARCHAR(100)"/>
+
+            <column name="target_book_id" type="INT"/>
+
+            <column name="challenge_title" type="VARCHAR(255)"/>
+
+            <column name="challenge_description" type="TEXT"/>
+
+            <column name="weakness_area" type="VARCHAR(50)"/>
+
+            <column name="user_weakness_hint" type="TEXT"/>
+
+            <column name="challenge_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="generated_at" type="TIMESTAMP"/>
+
+            <column name="completed_at" type="TIMESTAMP"/>
+
+            <column name="expires_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addAutoIncrement tableName="daily_challenges"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <rollback>
+            <dropTable tableName="daily_challenges"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>

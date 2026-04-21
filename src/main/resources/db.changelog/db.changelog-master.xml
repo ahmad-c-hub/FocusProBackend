@@ -26,4 +26,5 @@
     <include file="changes/019-add-fcm-notifications.xml"          relativeToChangelogFile="true"/>
     <include file="changes/020-create-web-push-subscriptions.xml"  relativeToChangelogFile="true"/>
     <include file="changes/021-make-goal-id-nullable.xml"          relativeToChangelogFile="true"/>
+    <include file="changes/022-create-daily-challenge-table.xml"   relativeToChangelogFile="true"/>
 </databaseChangeLog>
