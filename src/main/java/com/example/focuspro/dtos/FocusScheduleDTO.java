@@ -1,5 +1,6 @@
 package com.example.focuspro.dtos;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
 public class FocusScheduleDTO {
@@ -53,13 +54,17 @@ public class FocusScheduleDTO {
     public int getPrepTimerMinutes() { return prepTimerMinutes; }
     public void setPrepTimerMinutes(int prepTimerMinutes) { this.prepTimerMinutes = prepTimerMinutes; }
 
+    @JsonProperty("isRecurring")
     public boolean isRecurring() { return isRecurring; }
+    @JsonProperty("isRecurring")
     public void setRecurring(boolean recurring) { isRecurring = recurring; }
 
     public String getDaysOfWeek() { return daysOfWeek; }
     public void setDaysOfWeek(String daysOfWeek) { this.daysOfWeek = daysOfWeek; }
 
+    @JsonProperty("isActive")
     public boolean isActive() { return isActive; }
+    @JsonProperty("isActive")
     public void setActive(boolean active) { isActive = active; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
