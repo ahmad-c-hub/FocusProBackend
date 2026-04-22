@@ -1,5 +1,7 @@
 package com.example.focuspro.dtos;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class FocusScheduleRequest {
 
     private String scheduleType;
@@ -23,7 +25,9 @@ public class FocusScheduleRequest {
     public int getPrepTimerMinutes() { return prepTimerMinutes; }
     public void setPrepTimerMinutes(int prepTimerMinutes) { this.prepTimerMinutes = prepTimerMinutes; }
 
+    @JsonProperty("isRecurring")
     public boolean isRecurring() { return isRecurring; }
+    @JsonProperty("isRecurring")
     public void setRecurring(boolean recurring) { isRecurring = recurring; }
 
     public String getDaysOfWeek() { return daysOfWeek; }

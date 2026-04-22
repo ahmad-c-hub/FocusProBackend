@@ -1,5 +1,6 @@
 package com.example.focuspro.dtos;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -64,9 +65,13 @@ public class LockInSessionDTO {
     public Long getLinkedCoachingSessionId() { return linkedCoachingSessionId; }
     public void setLinkedCoachingSessionId(Long linkedCoachingSessionId) { this.linkedCoachingSessionId = linkedCoachingSessionId; }
 
+    @JsonProperty("isPrepPhase")
     public boolean isPrepPhase() { return isPrepPhase; }
+    @JsonProperty("isPrepPhase")
     public void setPrepPhase(boolean prepPhase) { isPrepPhase = prepPhase; }
 
+    @JsonProperty("isActive")
     public boolean isActive() { return isActive; }
+    @JsonProperty("isActive")
     public void setActive(boolean active) { isActive = active; }
 }
