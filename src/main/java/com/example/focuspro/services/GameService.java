@@ -143,6 +143,14 @@ public class GameService {
             case "color_match" ->
                 // 100 pts per correct answer + streak bonus → 1000 pts ≈ +5 focus pts (capped)
                 Math.min(5.0, req.getScore() / 200.0);
+            case "visual_nback" ->
+                Math.min(5.0, req.getScore() / 40.0);
+            case "go_no_go" ->
+                Math.min(4.0, req.getScore() / 60.0);
+            case "flanker_task" ->
+                req.isCompleted()
+                        ? Math.min(5.0, req.getScore() / 60.0)
+                        : Math.min(2.0, req.getScore() / 60.0);
             default -> 0.0;
         };
     }
@@ -179,6 +187,15 @@ public class GameService {
                         : String.format("Played Color Match (%s) — Score: %d, Mistakes: %d",
                                 diffLabel, req.getScore(), req.getMistakes());
             }
+            case "visual_nback" ->
+                    String.format("Played Visual N-Back — Score: %d, Hits: %d, False alarms: %d",
+                            req.getScore(), req.getLevelReached(), req.getMistakes());
+            case "go_no_go" ->
+                    String.format("Played Go/No-Go — Score: %d, Inhibitions: %d, Commission errors: %d",
+                            req.getScore(), req.getLevelReached(), req.getMistakes());
+            case "flanker_task" ->
+                    String.format("Played Flanker Task — Score: %d, Correct: %d, Errors: %d",
+                            req.getScore(), req.getLevelReached(), req.getMistakes());
             default -> "Played " + game.getTitle();
         };
     }
