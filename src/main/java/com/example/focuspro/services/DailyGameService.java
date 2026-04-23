@@ -68,6 +68,7 @@ public class DailyGameService {
             userRank = IntStream.range(0, scores.size())
                     .filter(i -> scores.get(i).getUserId() == currentUser.getId())
                     .map(i -> i + 1)
+                    .boxed()
                     .findFirst()
                     .orElse(null);
         }
