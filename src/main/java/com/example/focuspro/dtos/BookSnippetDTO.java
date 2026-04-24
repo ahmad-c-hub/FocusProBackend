@@ -1,6 +1,7 @@
 package com.example.focuspro.dtos;
 
 import lombok.*;
+import java.math.BigDecimal;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -16,4 +17,6 @@ public class BookSnippetDTO {
     private Integer durationSeconds;
     private Integer sequenceOrder;
     private boolean isCompleted;
+    private Integer wordCount;
+    private BigDecimal focusPoints;
 }

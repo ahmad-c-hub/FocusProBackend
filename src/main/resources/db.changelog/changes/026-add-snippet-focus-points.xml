@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <!-- Add word_count column and populate it -->
+    <changeSet id="026-add-word-count" author="abd">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="book_snippets" columnName="word_count"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="book_snippets">
+            <column name="word_count" type="INTEGER"/>
+        </addColumn>
+
+        <sql>
+            UPDATE book_snippets
+            SET word_count = array_length(
+                regexp_split_to_array(trim(snippet_text), '\s+'), 1
+            )
+            WHERE word_count IS NULL;
+        </sql>
+
+        <rollback>
+            <dropColumn tableName="book_snippets" columnName="word_count"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Add focus_points column and populate it using book level -->
+    <changeSet id="026-add-focus-points" author="abd">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="book_snippets" columnName="focus_points"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="book_snippets">
+            <column name="focus_points" type="DECIMAL(4,2)"/>
+        </addColumn>
+
+        <sql>
+            UPDATE book_snippets bs
+            SET focus_points = LEAST(5.0, ROUND(
+                (
+                  (b.level * 1.5)
+                  + LEAST(1.0, bs.word_count / 300.0)
+                )::numeric
+            , 2))
+            FROM books b
+            WHERE bs.book_id = b.id
+              AND bs.focus_points IS NULL;
+        </sql>
+
+        <rollback>
+            <dropColumn tableName="book_snippets" columnName="focus_points"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

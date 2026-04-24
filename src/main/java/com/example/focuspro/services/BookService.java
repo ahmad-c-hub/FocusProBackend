@@ -157,7 +157,9 @@ public class BookService {
                 snippet.getPageNumber(),
                 snippet.getDurationSeconds(),
                 snippet.getSequenceOrder(),
-                isCompleted
+                isCompleted,
+                snippet.getWordCount(),
+                snippet.getFocusPoints()
         );
     }
 }

@@ -2,6 +2,7 @@ package com.example.focuspro.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -44,4 +45,10 @@ public class BookSnippet {
     @Column(name = "updated_at", insertable = false,
             columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime updatedAt;
+
+    @Column(name = "word_count")
+    private Integer wordCount;
+
+    @Column(name = "focus_points")
+    private BigDecimal focusPoints;
 }
