@@ -184,7 +184,19 @@ public class AiService {
                     ON CONFLICT (user_id, snippet_id) DO UPDATE SET completed = true
                     """, user.getId(), snippetId);
 
-            focusGained   = correct == 3 ? 2.0 : 1.0; // perfect = 2pts, passing = 1pt
+            BookSnippet snippet = bookSnippetRepo.findById(snippetId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Snippet not found: " + snippetId));
+
+            java.math.BigDecimal base = snippet.getFocusPoints() != null
+                    ? snippet.getFocusPoints()
+                    : java.math.BigDecimal.valueOf(1.5);
+
+            focusGained = correct == 3
+                    ? base.doubleValue()
+                    : base.multiply(java.math.BigDecimal.valueOf(0.6)).doubleValue();
+
+            focusGained = Math.round(focusGained * 10.0) / 10.0;
             newFocusScore = Math.min(100.0, currentScore + focusGained);
             user.setFocusScore(newFocusScore);
             userRepo.save(user);
