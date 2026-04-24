@@ -58,7 +58,14 @@ public class GameService {
                     return g;
                 });
 
-        double focusScoreGained = calculateFocusScoreGained(request);
+        double rawGain = calculateFocusScoreGained(request);
+
+        // Diminishing returns: the closer to 100, the less each session adds.
+        // factor = ((100 - currentScore) / 100) ^ 0.6
+        // At score 0 → ×1.0 | score 50 → ×0.66 | score 80 → ×0.44 | score 95 → ×0.23
+        double currentScore = user.getFocusScore() != null ? user.getFocusScore() : 0.0;
+        double scalingFactor = Math.pow(Math.max(0.0, (100.0 - currentScore) / 100.0), 0.6);
+        double focusScoreGained = Math.round(rawGain * scalingFactor * 10.0) / 10.0;
 
         GameResult result = new GameResult();
         result.setGameId(game.getId());
@@ -70,7 +77,6 @@ public class GameService {
         result.setPlayedAt(LocalDateTime.now());
         gameResultRepo.save(result);
 
-        double currentScore = user.getFocusScore() != null ? user.getFocusScore() : 0.0;
         double newFocusScore = Math.min(100.0, currentScore + focusScoreGained);
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
@@ -126,31 +132,112 @@ public class GameService {
 
     private double calculateFocusScoreGained(GameResultSubmitRequest req) {
         return switch (req.getGameType()) {
-            case "memory_matrix" ->
-                // Score 100 → +1.0 pt, Score 500 → +5.0 pts (capped at 5)
-                Math.min(5.0, req.getScore() / 100.0);
-            case "sudoku" ->
-                // Must complete puzzle to earn points; penalised per mistake
-                req.isCompleted()
-                        ? Math.max(0.5, 3.0 - (req.getMistakes() * 0.5))
-                        : 0.0;
-            case "train_of_thought" ->
-                // Each correct train routed = 0.5 pts, capped at 5
-                Math.min(5.0, (req.getScore() / 100.0) * 0.5);
-            case "number_stream" ->
-                // Score-based, capped at 4 pts
-                Math.min(4.0, req.getScore() / 150.0);
-            case "color_match" ->
-                // 100 pts per correct answer + streak bonus → 1000 pts ≈ +5 focus pts (capped)
-                Math.min(5.0, req.getScore() / 200.0);
-            case "visual_nback" ->
-                Math.min(5.0, req.getScore() / 40.0);
-            case "go_no_go" ->
-                Math.min(4.0, req.getScore() / 60.0);
-            case "flanker_task" ->
-                req.isCompleted()
-                        ? Math.min(5.0, req.getScore() / 60.0)
-                        : Math.min(2.0, req.getScore() / 60.0);
+
+            case "memory_matrix" -> {
+                // Primary: levelReached (1-10 grid size) × 0.45 = up to 4.5 base
+                // Quality: each mistake cuts 7% (floor 30%)
+                double base = req.getLevelReached() * 0.45;
+                double accuracy = Math.max(0.3, 1.0 - req.getMistakes() * 0.07);
+                yield Math.min(5.0, base * accuracy);
+            }
+
+            case "sudoku" -> {
+                // levelReached: 1=easy, 2=medium, 3=hard
+                // Completed: level × 1.4 base, mistake cuts 15% (floor 40%), time bonus up to ×1.2
+                // Not completed: small consolation (level × 0.3)
+                int level = Math.max(1, req.getLevelReached());
+                if (!req.isCompleted()) {
+                    yield Math.min(1.0, level * 0.3);
+                }
+                double base = level * 1.4;
+                double mistakeMult = Math.max(0.4, 1.0 - req.getMistakes() * 0.15);
+                int targetSeconds = level == 1 ? 300 : level == 3 ? 720 : 480;
+                double timeBonus = req.getTimePlayedSeconds() > 0
+                        ? Math.min(1.2, (double) targetSeconds / req.getTimePlayedSeconds())
+                        : 1.0;
+                yield Math.min(5.0, base * mistakeMult * timeBonus);
+            }
+
+            case "speed_match" -> {
+                // score encodes speed+accuracy over fixed 60s window
+                // levelReached: difficulty 1=easy, 2=medium, 3=hard → multiplier
+                int level = Math.max(1, req.getLevelReached());
+                double diffMult = 1.0 + (level - 1) * 0.4; // 1.0 / 1.4 / 1.8
+                yield Math.min(5.0, (req.getScore() / 200.0) * diffMult);
+            }
+
+            case "color_match" -> {
+                // levelReached: 1=easy, 2=medium, 3=hard
+                // Hard mode (30 s) vs easy (60 s) — difficulty multiplier rewards pressure
+                int level = Math.max(1, req.getLevelReached());
+                double diffMult = 1.0 + (level - 1) * 0.35; // 1.0 / 1.35 / 1.70
+                yield Math.min(5.0, (req.getScore() / 150.0) * diffMult);
+            }
+
+            case "number_stream" -> {
+                // levelReached: 1-10 roadmap level
+                // Hybrid: level contribution + score contribution, mistake penalty (floor 50%)
+                double levelPart = req.getLevelReached() * 0.35;
+                double scorePart = req.getScore() / 300.0;
+                double accuracy = Math.max(0.5, 1.0 - req.getMistakes() * 0.05);
+                yield Math.min(4.0, (levelPart + scorePart) * accuracy);
+            }
+
+            case "pattern_trail" -> {
+                // levelReached: 1-10 roadmap level
+                // Completion matters: ×1.1 if done, ×0.7 if quit early
+                double base = req.getLevelReached() * 0.45;
+                double accuracy = Math.max(0.3, 1.0 - req.getMistakes() * 0.07);
+                double completionMult = req.isCompleted() ? 1.1 : 0.7;
+                yield Math.min(5.0, base * accuracy * completionMult);
+            }
+
+            case "train_of_thought" -> {
+                // levelReached: 1-5 roadmap level
+                // Time efficiency: faster than target gets bonus up to ×1.2
+                int level = Math.max(1, req.getLevelReached());
+                double base = level * 0.85; // level 5 → 4.25
+                double completionMult = req.isCompleted() ? 1.1 : 0.6;
+                int targetSeconds = level * 180;
+                double timeBonus = req.getTimePlayedSeconds() > 0
+                        ? Math.min(1.2, (double) targetSeconds / req.getTimePlayedSeconds())
+                        : 1.0;
+                yield Math.min(5.0, base * completionMult * timeBonus);
+            }
+
+            case "visual_nback" -> {
+                // levelReached = hits (true positives), mistakes = false alarms
+                // Signal precision: hits / (hits + falseAlarms) drives the score
+                int hits = req.getLevelReached();
+                int falseAlarms = req.getMistakes();
+                int total = hits + falseAlarms;
+                double precision = total > 0 ? (double) hits / total : 0.5;
+                double scoreBonus = Math.min(0.5, req.getScore() / 200.0);
+                yield Math.min(5.0, precision * 4.5 + scoreBonus);
+            }
+
+            case "go_no_go" -> {
+                // levelReached = successful inhibitions (correct No-Go rejections)
+                // mistakes = commission errors (pressed Go on No-Go trial)
+                int inhibitions = req.getLevelReached();
+                int commissionErrors = req.getMistakes();
+                int total = inhibitions + commissionErrors;
+                double inhibitionRate = total > 0 ? (double) inhibitions / total : 0.5;
+                double scoreBonus = Math.min(0.5, req.getScore() / 400.0);
+                yield Math.min(4.0, inhibitionRate * 3.5 + scoreBonus);
+            }
+
+            case "flanker_task" -> {
+                // levelReached = correct responses, mistakes = errors
+                // Pure accuracy score, completion multiplier
+                int correct = req.getLevelReached();
+                int errors = req.getMistakes();
+                int total = correct + errors;
+                double accuracy = total > 0 ? (double) correct / total : 0.5;
+                double completionMult = req.isCompleted() ? 1.15 : 0.8;
+                yield Math.min(5.0, accuracy * 4.5 * completionMult);
+            }
+
             default -> 0.0;
         };
     }
