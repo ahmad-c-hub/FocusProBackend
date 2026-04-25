@@ -37,6 +37,9 @@ public class GameService {
     @Autowired
     private ActivityLogService activityLogService;
 
+    @Autowired
+    private DailyScoreService dailyScoreService;
+
     /** Games that use the level roadmap and their max levels. */
     private static final Set<String> LEVEL_GAMES =
             Set.of("memory_matrix", "number_stream", "pattern_trail", "train_of_thought");
@@ -80,6 +83,8 @@ public class GameService {
         double newFocusScore = Math.min(100.0, currentScore + focusScoreGained);
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
+
+        dailyScoreService.addPoints(user.getId(), focusScoreGained);
 
         // Update level progress for roadmap games
         if (LEVEL_GAMES.contains(request.getGameType()) && request.getLevelReached() > 0) {

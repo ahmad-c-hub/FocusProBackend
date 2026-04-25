@@ -43,6 +43,9 @@ public class DailyGameService {
     @Autowired
     private ActivityLogService activityLogService;
 
+    @Autowired
+    private DailyScoreService dailyScoreService;
+
     private int todayDayIndex() {
         return (int) (LocalDate.now(ZoneOffset.UTC).toEpochDay() % 3);
     }
@@ -111,6 +114,8 @@ public class DailyGameService {
                 (user.getFocusScore() != null ? user.getFocusScore() : 0.0) + focusScoreGained);
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
+
+        dailyScoreService.addPoints(user.getId(), focusScoreGained);
 
         activityLogService.log(
                 user.getId(),

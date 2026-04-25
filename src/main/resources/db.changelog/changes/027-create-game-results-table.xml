@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="027-create-game-results-table" author="abd">
+
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="game_results"/></not>
+        </preConditions>
+
+        <createTable tableName="game_results">
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="game_id" type="INT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="user_id" type="INT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="score" type="INT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="time_played_seconds" type="INT">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="completed" type="BOOLEAN">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="played_at" type="TIMESTAMP"/>
+
+            <column name="focus_score_gained" type="FLOAT8"/>
+        </createTable>
+
+        <addAutoIncrement tableName="game_results"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <rollback>
+            <dropTable tableName="game_results"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
