@@ -115,14 +115,16 @@ public class DailyGameService {
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
 
-        dailyScoreService.addPoints(user.getId(), focusScoreGained);
-
         activityLogService.log(
                 user.getId(),
                 "DAILY_GAME_PLAYED",
                 "Played daily game: " + gameType + " — Score: " + score,
                 "{\"gameType\":\"" + gameType + "\",\"score\":" + score + "}"
         );
+
+        try {
+            dailyScoreService.addPoints(user.getId(), focusScoreGained);
+        } catch (Exception ignored) {}
 
         return getTodayStatus(user);
     }
