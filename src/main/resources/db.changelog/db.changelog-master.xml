@@ -31,4 +31,6 @@
     <include file="changes/024-create-lock-in-session-table.xml"   relativeToChangelogFile="true"/>
     <include file="changes/025-create-daily-game-scores-table.xml" relativeToChangelogFile="true"/>
     <include file="changes/026-add-snippet-focus-points.xml"       relativeToChangelogFile="true"/>
+    <include file="changes/027-create-game-results-table.xml"      relativeToChangelogFile="true"/>
+    <include file="changes/028-create-daily-scores-table.xml"      relativeToChangelogFile="true"/>
 </databaseChangeLog>
