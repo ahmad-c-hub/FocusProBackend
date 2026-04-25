@@ -84,9 +84,8 @@ public class GameService {
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
 
-        dailyScoreService.addPoints(user.getId(), focusScoreGained);
-
-        // Update level progress for roadmap games
+        // Update level progress for roadmap games — must happen before daily score
+        // so a daily-score failure never blocks level persistence.
         if (LEVEL_GAMES.contains(request.getGameType()) && request.getLevelReached() > 0) {
             upsertLevelProgress(user.getId(), request.getGameType(), request.getLevelReached());
         }
@@ -97,6 +96,10 @@ public class GameService {
                 buildDescription(request, game),
                 buildJsonData(request, focusScoreGained)
         );
+
+        try {
+            dailyScoreService.addPoints(user.getId(), focusScoreGained);
+        } catch (Exception ignored) {}
 
         return new GameResultResponse(focusScoreGained, newFocusScore,
                 "Result saved! +" + String.format("%.1f", focusScoreGained) + " focus pts");
