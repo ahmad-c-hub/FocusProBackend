@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class DiagnosticService {
@@ -48,29 +50,53 @@ public class DiagnosticService {
     public String submitDiagnostic(DiagnosticSubmitRequest request) {
         Users user = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        // 1. Insert diagnostic_session
+        // 1. Load questions from DB to compute scores server-side
+        Map<Integer, DiagnosticQuestion> questionMap = diagnosticQuestionRepo
+                .findAllByOrderByDisplayOrderAsc()
+                .stream()
+                .collect(Collectors.toMap(q -> q.getId().intValue(), q -> q));
+
+        // 2. Compute dimension raw scores from answers
+        double screenRaw = 0, attentionRaw = 0, lifestyleRaw = 0, learningRaw = 0;
+        for (DiagnosticAnswerDTO answer : request.getAnswers()) {
+            DiagnosticQuestion q = questionMap.get(answer.getQuestionId());
+            if (q == null) continue;
+            int pts = pointsForOption(q, answer.getSelectedOption());
+            answer.setPointsEarned(pts); // update DTO so DB insert uses computed value
+            switch (q.getDimension()) {
+                case "screen_habits" -> screenRaw    += pts;
+                case "attention"     -> attentionRaw += pts;
+                case "lifestyle"     -> lifestyleRaw += pts;
+                case "learning"      -> learningRaw  += pts;
+            }
+        }
+
+        double rawTotal   = screenRaw + attentionRaw + lifestyleRaw + learningRaw;
+        double focusScore = Math.round(40 + (rawTotal / 59.0) * 60);
+
+        // 3. Insert diagnostic_session with server-computed scores
         int sessionId = jdbcTemplate.queryForObject(
                 """
-                INSERT INTO diagnostic_session 
+                INSERT INTO diagnostic_session
                     (user_id, screen_score, attention_score, lifestyle_score, learning_score, raw_total, focus_score)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 RETURNING id
                 """,
                 Integer.class,
                 user.getId(),
-                request.getScreenScore(),
-                request.getAttentionScore(),
-                request.getLifestyleScore(),
-                request.getLearningScore(),
-                request.getRawTotal(),
-                request.getFocusScore()
+                (screenRaw    / 16.0) * 100,
+                (attentionRaw / 25.0) * 100,
+                (lifestyleRaw /  9.0) * 100,
+                (learningRaw  /  9.0) * 100,
+                rawTotal,
+                focusScore
         );
 
-        // 2. Insert each answer into diagnostic_response
+        // 4. Insert each answer into diagnostic_response
         for (DiagnosticAnswerDTO answer : request.getAnswers()) {
             jdbcTemplate.update(
                     """
-                    INSERT INTO diagnostic_response 
+                    INSERT INTO diagnostic_response
                         (session_id, question_id, selected_option, points_earned)
                     VALUES (?, ?, ?, ?)
                     """,
@@ -81,23 +107,34 @@ public class DiagnosticService {
             );
         }
 
-        // 3. Update user's focus score
-        user.setFocusScore(request.getFocusScore());
+        // 5. Update user's focus score
+        user.setFocusScore(focusScore);
         userRepo.save(user);
 
         activityLogService.log(
                 user.getId(),
                 "DIAGNOSTIC_COMPLETE",
-                String.format("Completed diagnostic assessment. Focus score: %.1f/100", request.getFocusScore()),
+                String.format("Completed diagnostic assessment. Focus score: %.1f/100", focusScore),
                 String.format("{\"focusScore\":%.1f,\"rawTotal\":%.1f,\"tier\":\"%s\"}",
-                        request.getFocusScore(), request.getRawTotal(), getFocusTier(request.getRawTotal()))
+                        focusScore, rawTotal, getFocusTier(rawTotal))
         );
 
         return String.format(
                 "Diagnostic complete! Focus score: %.1f/100 | Tier: %s",
-                request.getFocusScore(),
-                getFocusTier(request.getRawTotal())
+                focusScore,
+                getFocusTier(rawTotal)
         );
+    }
+
+    /** Looks up the points for a given answer option directly from the DB entity. */
+    private int pointsForOption(DiagnosticQuestion q, String option) {
+        return switch (option.toUpperCase()) {
+            case "A" -> q.getPointsA();
+            case "B" -> q.getPointsB();
+            case "C" -> q.getPointsC();
+            case "D" -> q.getPointsD();
+            default  -> 0;
+        };
     }
 
 
