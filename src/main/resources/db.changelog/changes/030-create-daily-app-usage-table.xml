@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="030-create-daily-app-usage-table" author="ahmad">
+
+        <!--
+            One row per user / app / day.
+            Updated (upserted) every ~10 minutes from the Flutter app.
+            total_minutes comes from Android UsageStatsManager (daily totals).
+        -->
+        <createTable tableName="daily_app_usage">
+
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="user_id" type="INT">
+                <constraints nullable="false"
+                             foreignKeyName="fk_daily_app_usage_user"
+                             references="users(id)"/>
+            </column>
+
+            <column name="package_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="app_name" type="VARCHAR(255)"/>
+
+            <!-- Calendar date only — no time component -->
+            <column name="usage_date" type="DATE">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Total foreground minutes for this app on this date -->
+            <column name="total_minutes" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Last time this row was written -->
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+
+        </createTable>
+
+        <addAutoIncrement tableName="daily_app_usage"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <!-- Enforce one row per user/app/day -->
+        <addUniqueConstraint tableName="daily_app_usage"
+                             columnNames="user_id, package_name, usage_date"
+                             constraintName="uq_daily_app_usage"/>
+
+        <createIndex tableName="daily_app_usage"
+                     indexName="idx_daily_app_usage_user_date">
+            <column name="user_id"/>
+            <column name="usage_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="daily_app_usage"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
