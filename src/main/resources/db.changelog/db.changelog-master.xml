@@ -33,4 +33,5 @@
     <include file="changes/026-add-snippet-focus-points.xml"       relativeToChangelogFile="true"/>
     <include file="changes/027-create-game-results-table.xml"      relativeToChangelogFile="true"/>
     <include file="changes/028-create-daily-scores-table.xml"      relativeToChangelogFile="true"/>
+    <include file="changes/029-create-app-screen-events-table.xml" relativeToChangelogFile="true"/>
 </databaseChangeLog>
