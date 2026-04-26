@@ -2,7 +2,10 @@ package com.example.focuspro.controllers;
 
 import com.example.focuspro.dtos.AppScreenEventDTO;
 import com.example.focuspro.dtos.AppScreenEventRequest;
+import com.example.focuspro.dtos.DailyUsageRequest;
+import com.example.focuspro.dtos.DailyUsageSummaryDTO;
 import com.example.focuspro.services.AppScreenEventService;
+import com.example.focuspro.services.DailyAppUsageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -26,6 +29,9 @@ public class AppScreenEventController {
 
     @Autowired
     private AppScreenEventService service;
+
+    @Autowired
+    private DailyAppUsageService dailyUsageService;
 
     /**
      * POST /screen-events/batch
@@ -61,5 +67,29 @@ public class AppScreenEventController {
     @GetMapping("/recent")
     public ResponseEntity<List<AppScreenEventDTO>> getRecent() {
         return ResponseEntity.ok(service.getRecentEvents());
+    }
+
+    /**
+     * POST /screen-events/daily-usage
+     *
+     * Flutter sends today's aggregated app usage totals (from UsageStatsManager)
+     * every ~10 minutes. One row per app per day — upserted on the server.
+     */
+    @PostMapping("/daily-usage")
+    public ResponseEntity<Map<String, Integer>> saveDailyUsage(
+            @RequestBody DailyUsageRequest request) {
+        int saved = dailyUsageService.upsertDailyUsage(request);
+        return ResponseEntity.ok(Map.of("saved", saved));
+    }
+
+    /**
+     * GET /screen-events/summary
+     *
+     * Returns today's screen-time totals per app for the current user,
+     * sorted by most-used first.
+     */
+    @GetMapping("/summary")
+    public ResponseEntity<List<DailyUsageSummaryDTO>> getSummary() {
+        return ResponseEntity.ok(dailyUsageService.getTodaySummary());
     }
 }
