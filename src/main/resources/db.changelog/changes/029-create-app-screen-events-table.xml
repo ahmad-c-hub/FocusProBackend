@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="029-create-app-screen-events-table" author="abd">
+
+        <!--
+            Stores every app-switch event captured by FocusProAccessibilityService.
+            Each row = one moment the user opened a specific app/screen.
+        -->
+        <createTable tableName="app_screen_events">
+
+            <column name="id" type="BIGINT">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <!-- Which user this event belongs to -->
+            <column name="user_id" type="INT">
+                <constraints nullable="false"
+                             foreignKeyName="fk_app_screen_events_user"
+                             references="users(id)"/>
+            </column>
+
+            <!-- Android package name, e.g. com.instagram.android -->
+            <column name="package_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- Human-readable app name, e.g. Instagram -->
+            <column name="app_name" type="VARCHAR(255)"/>
+
+            <!-- The specific Activity/screen inside the app -->
+            <column name="activity_name" type="VARCHAR(500)"/>
+
+            <!-- When the user switched TO this app (device local time, sent as UTC) -->
+            <column name="started_at" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <!-- When we received and stored this event on the server -->
+            <column name="recorded_at" type="TIMESTAMP" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+
+        </createTable>
+
+        <addAutoIncrement tableName="app_screen_events"
+                          columnName="id"
+                          columnDataType="BIGINT"
+                          generationType="IDENTITY"/>
+
+        <!-- Index on user_id + started_at for fast per-user date-range queries -->
+        <createIndex tableName="app_screen_events"
+                     indexName="idx_app_screen_events_user_started">
+            <column name="user_id"/>
+            <column name="started_at"/>
+        </createIndex>
+
+        <rollback>
+            <dropTable tableName="app_screen_events"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>
