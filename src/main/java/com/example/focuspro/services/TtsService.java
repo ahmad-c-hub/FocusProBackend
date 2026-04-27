@@ -11,6 +11,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Map;
@@ -48,7 +49,7 @@ public class TtsService {
             return null;
         }
 
-        if (text.length() > 5000) text = text.substring(0, 5000);
+        text = truncateToUtf8Bytes(text, 4800); // Google limit is 5000 bytes, not chars
 
         int cacheKey = text.hashCode();
 
@@ -161,5 +162,15 @@ public class TtsService {
 
         log.error("Google TTS failed after {} attempts", MAX_ATTEMPTS);
         return null;
+    }
+
+    // ── Truncate to at most maxBytes UTF-8 bytes without splitting a multi-byte char
+    private static String truncateToUtf8Bytes(String text, int maxBytes) {
+        byte[] bytes = text.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length <= maxBytes) return text;
+        int end = maxBytes;
+        // Step back over any UTF-8 continuation bytes (10xxxxxx) to land on a char boundary
+        while (end > 0 && (bytes[end] & 0xC0) == 0x80) end--;
+        return new String(bytes, 0, end, StandardCharsets.UTF_8);
     }
 }
