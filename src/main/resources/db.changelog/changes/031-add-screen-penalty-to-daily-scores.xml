@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <changeSet id="031-add-screen-penalty-to-daily-scores" author="abd">
+
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="daily_scores" columnName="screen_penalty"/></not>
+        </preConditions>
+
+        <addColumn tableName="daily_scores">
+            <column name="screen_penalty" type="FLOAT8" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+
+        <rollback>
+            <dropColumn tableName="daily_scores" columnName="screen_penalty"/>
+        </rollback>
+
+    </changeSet>
+
+</databaseChangeLog>

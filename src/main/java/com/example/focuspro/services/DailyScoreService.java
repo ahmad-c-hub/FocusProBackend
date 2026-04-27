@@ -38,12 +38,31 @@ public class DailyScoreService {
     }
 
     /**
-     * Returns today's accumulated daily score. Returns 0.0 if no record exists.
+     * Returns today's effective daily score (raw points minus screen penalty, min 0).
+     * Returns 0.0 if no record exists.
      */
     public double getTodayScore(int userId) {
         return dailyScoreRepo.findByUserIdAndScoreDate(userId, LocalDate.now())
-                .map(DailyScore::getTotalPoints)
+                .map(DailyScore::getEffectivePoints)
                 .orElse(0.0);
+    }
+
+    /**
+     * Stores the screen-time penalty for the given user and date.
+     * Called automatically after every screen-time sync; overwrites the previous penalty
+     * so repeated syncs within the same day always reflect the latest usage totals.
+     */
+    public void applyScreenPenalty(int userId, LocalDate date, int penalty) {
+        DailyScore entry = dailyScoreRepo.findByUserIdAndScoreDate(userId, date)
+                .orElseGet(() -> {
+                    DailyScore d = new DailyScore();
+                    d.setUserId(userId);
+                    d.setScoreDate(date);
+                    d.setTotalPoints(0.0);
+                    return d;
+                });
+        entry.setScreenPenalty(penalty);
+        dailyScoreRepo.save(entry);
     }
 
     /**
@@ -62,7 +81,7 @@ public class DailyScoreService {
             LocalDate date = weekAgo.plusDays(i);
             double pts = records.stream()
                     .filter(r -> r.getScoreDate().equals(date))
-                    .mapToDouble(DailyScore::getTotalPoints)
+                    .mapToDouble(DailyScore::getEffectivePoints)
                     .findFirst()
                     .orElse(0.0);
             result.add(new DailyScoreEntry(date.toString(), pts));
