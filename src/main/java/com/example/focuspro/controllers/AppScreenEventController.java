@@ -83,13 +83,15 @@ public class AppScreenEventController {
     }
 
     /**
-     * GET /screen-events/summary
+     * GET /screen-events/summary?date=yyyy-MM-dd
      *
      * Returns today's screen-time totals per app for the current user,
-     * sorted by most-used first.
+     * sorted by most-used first. Accepts an optional "date" query param
+     * (device local date) to avoid server-timezone vs device-timezone mismatch.
      */
     @GetMapping("/summary")
-    public ResponseEntity<List<DailyUsageSummaryDTO>> getSummary() {
-        return ResponseEntity.ok(dailyUsageService.getTodaySummary());
+    public ResponseEntity<List<DailyUsageSummaryDTO>> getSummary(
+            @RequestParam(required = false) String date) {
+        return ResponseEntity.ok(dailyUsageService.getTodaySummary(date));
     }
 }

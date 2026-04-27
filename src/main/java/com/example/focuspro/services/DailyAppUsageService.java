@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,7 +29,16 @@ public class DailyAppUsageService {
         Users user = currentUser();
         if (request.getUsageStats() == null || request.getUsageStats().isEmpty()) return 0;
 
-        LocalDate today = LocalDate.now();
+        // Use the device's local date when provided (avoids server-UTC vs device-timezone mismatch).
+        // Flutter sends ISO "yyyy-MM-dd"; fall back to server's LocalDate.now() if absent/invalid.
+        LocalDate today;
+        try {
+            today = (request.getUsageDate() != null && !request.getUsageDate().isBlank())
+                    ? LocalDate.parse(request.getUsageDate())
+                    : LocalDate.now();
+        } catch (DateTimeParseException e) {
+            today = LocalDate.now();
+        }
         LocalDateTime now = LocalDateTime.now();
 
         int saved = 0;
@@ -52,10 +62,22 @@ public class DailyAppUsageService {
         return saved;
     }
 
-    /** Returns today's screen-time summary for the current user, most-used first. */
-    public List<DailyUsageSummaryDTO> getTodaySummary() {
+    /**
+     * Returns today's screen-time summary for the current user, most-used first.
+     * Accepts the device's local date string (ISO "yyyy-MM-dd") to avoid server
+     * timezone mismatch; falls back to LocalDate.now() if absent or invalid.
+     */
+    public List<DailyUsageSummaryDTO> getTodaySummary(String dateStr) {
         Users user = currentUser();
-        return repo.findByUserIdAndUsageDateOrderByTotalMinutesDesc(user.getId(), LocalDate.now())
+        LocalDate date;
+        try {
+            date = (dateStr != null && !dateStr.isBlank())
+                    ? LocalDate.parse(dateStr)
+                    : LocalDate.now();
+        } catch (DateTimeParseException e) {
+            date = LocalDate.now();
+        }
+        return repo.findByUserIdAndUsageDateOrderByTotalMinutesDesc(user.getId(), date)
                 .stream()
                 .map(r -> new DailyUsageSummaryDTO(
                         r.getPackageName(), r.getAppName(),
