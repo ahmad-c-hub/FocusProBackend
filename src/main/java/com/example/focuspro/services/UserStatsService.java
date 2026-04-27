@@ -30,7 +30,8 @@ public class UserStatsService {
 
     public UserStats getStats(int userId) {
         // ── Games played ──────────────────────────────────────────────────────
-        int gamesPlayed = gameResultRepo.findByUserIdOrderByPlayedAtDesc(userId).size();
+        // Count distinct game types the user has ever tried (max = number of games in the app).
+        int gamesPlayed = gameResultRepo.countDistinctGamesByUserId(userId);
 
         // ── Focus time (minutes) ──────────────────────────────────────────────
         // Sum seconds from every game session the user has completed.
