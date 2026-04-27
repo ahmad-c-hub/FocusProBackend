@@ -344,6 +344,9 @@ public class FocusRoomService {
             JsonNode array = mapper.readTree(rawJson);
             boolean anyAbove40 = false;
 
+            // Track the best non-matching room for use in the "create" suggestion
+            String bestNonMatchReason = null;
+
             for (JsonNode node : array) {
                 long roomId = node.path("roomId").asLong();
                 double score = node.path("matchScore").asDouble();
@@ -352,8 +355,14 @@ public class FocusRoomService {
                 FocusRoom room = roomEntityMap.get(roomId);
                 if (room == null) continue;
 
-                if (score >= 30) anyAbove40 = true;
+                // Only show rooms that are genuinely relevant to the user's goal.
+                // Rooms scoring below 40 are unrelated and should not be shown.
+                if (score < 40) {
+                    if (bestNonMatchReason == null) bestNonMatchReason = reason;
+                    continue;
+                }
 
+                anyAbove40 = true;
                 Map<String, RoomMemberDTO> members = presence.getOrDefault(roomId, new HashMap<>());
 
                 RoomMatchDTO dto = new RoomMatchDTO();
@@ -368,9 +377,9 @@ public class FocusRoomService {
                 results.add(dto);
             }
 
-            // If no room scored above 40, prepend a "create new room" suggestion
-            if (!anyAbove40 && !results.isEmpty()) {
-                String reason = results.get(0).getMatchReason();
+            // If nothing relevant was found, prepend a "create new room" suggestion
+            if (!anyAbove40) {
+                String reason = bestNonMatchReason != null ? bestNonMatchReason : "";
                 RoomMatchDTO newRoom = buildNewRoomSuggestion(
                         "None of the active rooms closely match your goal. " +
                         "Consider creating a new room. Closest match note: " + reason);
