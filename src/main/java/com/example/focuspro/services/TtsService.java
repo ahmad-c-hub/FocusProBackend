@@ -1,7 +1,10 @@
 package com.example.focuspro.services;
 
+import com.example.focuspro.entities.TtsCacheEntry;
+import com.example.focuspro.repos.TtsCacheRepo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.*;
@@ -22,20 +25,19 @@ public class TtsService {
     @Value("${google.tts.api.key:}")
     private String apiKey;
 
+    @Autowired
+    private TtsCacheRepo ttsCacheRepo;
+
     // ── Timeout-aware HTTP client ──────────────────────────────────────────────
-    // connect: 10 s, read: 60 s  – prevents stuck threads on the free tier
     private final RestTemplate rest = new RestTemplateBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .readTimeout(Duration.ofSeconds(60))
             .build();
 
-    // ── In-memory audio cache (hash → MP3 bytes) ───────────────────────────────
-    private final Map<Integer, byte[]> audioCache = new ConcurrentHashMap<>();
+    // ── Hot in-memory layer (fastest) — cleared on restart, always checked first
+    private final Map<Integer, byte[]> memCache = new ConcurrentHashMap<>();
 
-    // ── Concurrency gate ───────────────────────────────────────────────────────
-    // Limit simultaneous Google TTS calls to 2.  Without this, parallel chapter
-    // prefetches all hit Google at once, trigger rate-limiting, and every one
-    // returns null → 503 to the client.
+    // ── Concurrency gate: max 2 simultaneous Google TTS calls ─────────────────
     private final Semaphore ttsGate = new Semaphore(2, true);
 
     private static final int MAX_ATTEMPTS = 3;
@@ -49,13 +51,27 @@ public class TtsService {
         if (text.length() > 5000) text = text.substring(0, 5000);
 
         int cacheKey = text.hashCode();
-        byte[] cached = audioCache.get(cacheKey);
+
+        // ── 1. Hot memory cache ────────────────────────────────────────────────
+        byte[] cached = memCache.get(cacheKey);
         if (cached != null) {
-            log.info("TTS cache hit — {} bytes", cached.length);
+            log.info("TTS mem-cache hit — {} bytes", cached.length);
             return cached;
         }
 
-        // ── Acquire gate (blocks rather than pile-driving Google) ──────────────
+        // ── 2. Persistent DB cache — survives server restarts ──────────────────
+        try {
+            TtsCacheEntry dbEntry = ttsCacheRepo.findById(cacheKey).orElse(null);
+            if (dbEntry != null) {
+                log.info("TTS db-cache hit — {} bytes", dbEntry.getAudioBytes().length);
+                memCache.put(cacheKey, dbEntry.getAudioBytes()); // warm mem cache
+                return dbEntry.getAudioBytes();
+            }
+        } catch (Exception e) {
+            log.warn("TTS DB cache read failed (non-fatal): {}", e.getMessage());
+        }
+
+        // ── 3. Acquire concurrency gate, then call Google TTS ─────────────────
         try {
             ttsGate.acquire();
         } catch (InterruptedException e) {
@@ -63,14 +79,24 @@ public class TtsService {
             return null;
         }
         try {
-            // Re-check cache: another thread may have populated it while we waited
-            cached = audioCache.get(cacheKey);
+            // Re-check after acquiring — another thread may have just populated it
+            cached = memCache.get(cacheKey);
             if (cached != null) {
-                log.info("TTS cache hit (post-wait) — {} bytes", cached.length);
+                log.info("TTS mem-cache hit (post-wait) — {} bytes", cached.length);
                 return cached;
             }
 
-            return callGoogleTtsWithRetry(text, cacheKey);
+            byte[] audio = callGoogleTtsWithRetry(text, cacheKey);
+            if (audio != null) {
+                // Persist to DB so future server restarts don't need to re-synthesize
+                try {
+                    ttsCacheRepo.save(new TtsCacheEntry(cacheKey, audio));
+                    log.info("TTS saved to DB cache — {} bytes", audio.length);
+                } catch (Exception e) {
+                    log.warn("TTS DB cache write failed (non-fatal): {}", e.getMessage());
+                }
+            }
+            return audio;
         } finally {
             ttsGate.release();
         }
@@ -109,7 +135,7 @@ public class TtsService {
                     String audioContent = (String) resp.getBody().get("audioContent");
                     if (audioContent != null) {
                         byte[] bytes = Base64.getDecoder().decode(audioContent);
-                        audioCache.put(cacheKey, bytes);
+                        memCache.put(cacheKey, bytes);
                         log.info("Google TTS OK (attempt {}) — {} bytes", attempt, bytes.length);
                         return bytes;
                     }
@@ -121,7 +147,6 @@ public class TtsService {
                 log.error("Google TTS attempt {} failed: {}", attempt, e.getMessage());
             }
 
-            // Exponential back-off: 1 s, 2 s, 4 s … (skip after last attempt)
             if (attempt < MAX_ATTEMPTS) {
                 long backoffMs = (long) Math.pow(2, attempt - 1) * 1000L;
                 log.info("TTS retry in {} ms (attempt {} of {})", backoffMs, attempt, MAX_ATTEMPTS);
