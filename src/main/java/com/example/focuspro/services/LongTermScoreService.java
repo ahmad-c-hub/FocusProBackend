@@ -53,8 +53,10 @@ public class LongTermScoreService {
                 .findByUserIdAndScoreDateBetweenOrderByScoreDateAsc(
                         user.getId(), startDate, yesterday);
 
+        // Use effective points (raw minus screen penalty) so heavy phone usage
+        // naturally lowers the long-term EMA score.
         Map<LocalDate, Double> scoreMap = records.stream()
-                .collect(Collectors.toMap(DailyScore::getScoreDate, DailyScore::getTotalPoints));
+                .collect(Collectors.toMap(DailyScore::getScoreDate, DailyScore::getEffectivePoints));
 
         // EMA up to yesterday → current long-term score
         double currentScore = computeEma(seed, startDate, yesterday, scoreMap);

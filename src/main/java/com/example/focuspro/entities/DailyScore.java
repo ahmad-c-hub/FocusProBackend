@@ -31,8 +31,17 @@ public class DailyScore {
     @Column(name = "total_points", nullable = false)
     private double totalPoints;
 
+    /** Points deducted for distracting-app screen time today. Updated on every sync. */
+    @Column(name = "screen_penalty", nullable = false)
+    private double screenPenalty = 0.0;
+
     @Column(name = "last_updated")
     private LocalDateTime lastUpdated;
+
+    /** Effective score after subtracting the screen-time penalty (never below 0). */
+    public double getEffectivePoints() {
+        return Math.max(0.0, totalPoints - screenPenalty);
+    }
 
     @PrePersist
     @PreUpdate

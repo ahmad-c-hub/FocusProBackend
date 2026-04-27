@@ -21,6 +21,12 @@ public class DailyAppUsageService {
     @Autowired
     private DailyAppUsageRepo repo;
 
+    @Autowired
+    private ScreenPenaltyService screenPenaltyService;
+
+    @Autowired
+    private DailyScoreService dailyScoreService;
+
     /**
      * Upserts today's usage totals for the current user.
      * One row per app — updates total_minutes if the row already exists.
@@ -59,6 +65,14 @@ public class DailyAppUsageService {
             repo.save(row);
             saved++;
         }
+
+        // After upserting all rows, recompute and store today's screen-time penalty.
+        // Fetching from DB ensures we use the freshly saved totals (not just the batch).
+        List<DailyAppUsage> allTodayUsage =
+                repo.findByUserIdAndUsageDateOrderByTotalMinutesDesc(user.getId(), today);
+        int penalty = screenPenaltyService.computePenalty(allTodayUsage);
+        dailyScoreService.applyScreenPenalty(user.getId(), today, penalty);
+
         return saved;
     }
 
