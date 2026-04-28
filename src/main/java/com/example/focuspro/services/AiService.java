@@ -81,12 +81,9 @@ public class AiService {
     public List<AiQuestionDTO> generateSnippetQuestions(Integer snippetId) {
         Users user = currentUser();
 
-        // Return cached set if already generated for this user+snippet
-        List<AiGeneratedQuestion> cached = aiQuestionRepo
-                .findByUserIdAndSnippetIdAndQuestionType(user.getId(), snippetId, "SNIPPET");
-        if (!cached.isEmpty()) {
-            return cached.stream().map(this::toQuestionDTO).toList();
-        }
+        // Delete any previously generated questions for this user+snippet
+        // so the AI always generates a fresh set on every attempt
+        aiQuestionRepo.deleteByUserIdAndSnippetIdAndQuestionType(user.getId(), snippetId, "SNIPPET");
 
         BookSnippet snippet = bookSnippetRepo.findById(snippetId)
                 .orElseThrow(() -> new IllegalArgumentException("Snippet not found: " + snippetId));
