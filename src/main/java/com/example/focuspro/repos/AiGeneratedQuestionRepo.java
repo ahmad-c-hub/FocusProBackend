@@ -11,8 +11,12 @@ import java.util.List;
 @Repository
 public interface AiGeneratedQuestionRepo extends JpaRepository<AiGeneratedQuestion, Long> {
 
-    // Fetch cached questions for a specific user+snippet (avoids re-generating every time)
+    // Fetch questions for a specific user+snippet
     List<AiGeneratedQuestion> findByUserIdAndSnippetIdAndQuestionType(
+            Integer userId, Integer snippetId, String questionType);
+
+    // Delete old questions for a user+snippet so fresh ones can be generated
+    void deleteByUserIdAndSnippetIdAndQuestionType(
             Integer userId, Integer snippetId, String questionType);
 
     // Pull all retention questions generated for this user in the latest batch
