@@ -1,6 +1,8 @@
 package com.example.focuspro.services;
 
+import com.example.focuspro.dtos.ChangePasswordRequest;
 import com.example.focuspro.dtos.CompleteProfileRequest;
+import com.example.focuspro.dtos.UpdateProfileRequest;
 import com.example.focuspro.entities.Role;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.RoleRepo;
@@ -80,6 +82,9 @@ public class UserService {
         if (existingUser.isPresent() && existingUser.get().isGoogleUser()) {
             throw new IllegalArgumentException("This account uses Google Sign-In. Please log in with Google.");
         }
+        if (existingUser.isPresent() && existingUser.get().getDeletedAt() != null) {
+            throw new IllegalArgumentException("This account has been deleted.");
+        }
 
         try {
             Authentication authentication = authenticationManager
@@ -144,5 +149,50 @@ public class UserService {
         }else{
             throw new IllegalArgumentException("User not found.");
         }
+    }
+
+    public void updateProfile(Users userNavigating, UpdateProfileRequest request) {
+        Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
+        if (optionalUser.isEmpty()) throw new IllegalArgumentException("User not found.");
+        Users user = optionalUser.get();
+        // Activate consent (keep existing behaviour)
+        user.setConsentUsage(true);
+        user.setConsentAt(java.time.OffsetDateTime.now());
+        // Update name if provided
+        if (request != null && request.getName() != null && !request.getName().isBlank()) {
+            user.setName(request.getName());
+        }
+        user.setUpdatedAt(java.time.OffsetDateTime.now());
+        userRepository.save(user);
+        activityLogService.log(user.getId(), "PROFILE_UPDATE", "User updated their profile");
+    }
+
+    public void changePassword(Users userNavigating, ChangePasswordRequest request) {
+        if (request.getCurrentPassword() == null || request.getNewPassword() == null) {
+            throw new IllegalArgumentException("Both current and new password are required.");
+        }
+        if (request.getNewPassword().length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters.");
+        }
+        Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
+        if (optionalUser.isEmpty()) throw new IllegalArgumentException("User not found.");
+        Users user = optionalUser.get();
+        if (!bCryptPasswordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+        user.setPassword(bCryptPasswordEncoder.encode(request.getNewPassword()));
+        user.setUpdatedAt(java.time.OffsetDateTime.now());
+        userRepository.save(user);
+        activityLogService.log(user.getId(), "PASSWORD_CHANGE", "User changed their password");
+    }
+
+    public void deleteAccount(Users userNavigating) {
+        Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
+        if (optionalUser.isEmpty()) throw new IllegalArgumentException("User not found.");
+        Users user = optionalUser.get();
+        // Soft-delete: mark as deleted so FK constraints are preserved
+        user.setDeletedAt(java.time.OffsetDateTime.now());
+        userRepository.save(user);
+        activityLogService.log(user.getId(), "ACCOUNT_DELETE", "User deleted their account");
     }
 }
