@@ -17,6 +17,7 @@ public class DailyChallengeDTO {
     private LocalDateTime expiresAt;
     private boolean expired;
     private boolean completed;
+    private int progress;
 
     public DailyChallengeDTO() {}
 
@@ -24,7 +25,8 @@ public class DailyChallengeDTO {
                               Integer targetBookId, String challengeTitle,
                               String challengeDescription, String weaknessArea,
                               LocalDate challengeDate, LocalDateTime completedAt,
-                              LocalDateTime expiresAt, boolean expired, boolean completed) {
+                              LocalDateTime expiresAt, boolean expired, boolean completed,
+                              int progress) {
         this.id = id;
         this.challengeType = challengeType;
         this.targetGameType = targetGameType;
@@ -37,6 +39,7 @@ public class DailyChallengeDTO {
         this.expiresAt = expiresAt;
         this.expired = expired;
         this.completed = completed;
+        this.progress = progress;
     }
 
     public Long getId() { return id; }
@@ -74,4 +77,7 @@ public class DailyChallengeDTO {
 
     public boolean isCompleted() { return completed; }
     public void setCompleted(boolean completed) { this.completed = completed; }
+
+    public int getProgress() { return progress; }
+    public void setProgress(int progress) { this.progress = progress; }
 }

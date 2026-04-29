@@ -8,12 +8,14 @@ import com.example.focuspro.entities.GameResult;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.repos.ActivityLogRepo;
 import com.example.focuspro.repos.BookRepo;
+import com.example.focuspro.repos.BookSnippetRepo;
 import com.example.focuspro.repos.DailyChallengeRepo;
 import com.example.focuspro.repos.GameRepo;
 import com.example.focuspro.repos.GameResultRepo;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -34,9 +36,11 @@ public class DailyChallengeService {
     @Autowired private GameResultRepo      gameResultRepo;
     @Autowired private GameRepo            gameRepo;
     @Autowired private BookRepo            bookRepo;
+    @Autowired private BookSnippetRepo     bookSnippetRepo;
     @Autowired private ActivityLogRepo     activityLogRepo;
     @Autowired private ActivityLogService  activityLogService;
     @Autowired private AiService           aiService;
+    @Autowired private JdbcTemplate        jdbcTemplate;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -392,14 +396,77 @@ public class DailyChallengeService {
     }
 
     private DailyChallengeDTO toDTO(DailyChallenge c) {
-        boolean expired  = c.getExpiresAt() != null
-                && c.getExpiresAt().isBefore(LocalDateTime.now());
+        boolean expired   = c.getExpiresAt() != null && c.getExpiresAt().isBefore(LocalDateTime.now());
         boolean completed = c.getCompletedAt() != null;
+        int progress      = computeProgress(c, currentUser().getId());
         return new DailyChallengeDTO(
                 c.getId(), c.getChallengeType(), c.getTargetGameType(), c.getTargetBookId(),
                 c.getChallengeTitle(), c.getChallengeDescription(), c.getWeaknessArea(),
                 c.getChallengeDate(), c.getCompletedAt(), c.getExpiresAt(),
-                expired, completed);
+                expired, completed, progress);
+    }
+
+    // ── Progress tracking & auto-completion ───────────────────────────────────
+
+    /** Called from GameService after each completed game submission. */
+    public void checkAndAutoCompleteGameChallenge(int userId, String gameType) {
+        dailyChallengeRepo.findByUserIdAndChallengeDate(userId, LocalDate.now()).ifPresent(challenge -> {
+            if (challenge.getCompletedAt() != null) return;
+            if (!"GAME".equals(challenge.getChallengeType())) return;
+            if (!gameType.equals(challenge.getTargetGameType())) return;
+            if (computeGameProgress(userId, gameType, LocalDate.now()) >= 2) {
+                challenge.setCompletedAt(LocalDateTime.now());
+                dailyChallengeRepo.save(challenge);
+                activityLogService.log(userId, "DAILY_CHALLENGE_COMPLETED",
+                        "Auto-completed: " + challenge.getChallengeTitle());
+            }
+        });
+    }
+
+    /** Called from BookService after each snippet is marked read. */
+    public void checkAndAutoCompleteBookChallenge(int userId, int bookId) {
+        dailyChallengeRepo.findByUserIdAndChallengeDate(userId, LocalDate.now()).ifPresent(challenge -> {
+            if (challenge.getCompletedAt() != null) return;
+            if (!"BOOK".equals(challenge.getChallengeType())) return;
+            if (challenge.getTargetBookId() == null || challenge.getTargetBookId() != bookId) return;
+            if (computeBookProgress(userId, bookId) >= 2) {
+                challenge.setCompletedAt(LocalDateTime.now());
+                dailyChallengeRepo.save(challenge);
+                activityLogService.log(userId, "DAILY_CHALLENGE_COMPLETED",
+                        "Auto-completed: " + challenge.getChallengeTitle());
+            }
+        });
+    }
+
+    private int computeProgress(DailyChallenge c, int userId) {
+        if (c.getCompletedAt() != null) return 2;
+        if ("GAME".equals(c.getChallengeType()) && c.getTargetGameType() != null) {
+            return computeGameProgress(userId, c.getTargetGameType(), LocalDate.now());
+        } else if ("BOOK".equals(c.getChallengeType()) && c.getTargetBookId() != null) {
+            return computeBookProgress(userId, c.getTargetBookId());
+        }
+        return 0;
+    }
+
+    private int computeGameProgress(int userId, String gameType, LocalDate date) {
+        return gameRepo.findByType(gameType)
+                .map(g -> (int) gameResultRepo.countCompletedTodayByGameId(
+                        userId, g.getId(), date.atStartOfDay()))
+                .orElse(0);
+    }
+
+    private int computeBookProgress(int userId, int bookId) {
+        List<Integer> snippetIds = bookSnippetRepo.findByBookIdOrderBySequenceOrderAsc(bookId)
+                .stream().map(s -> s.getId()).collect(Collectors.toList());
+        if (snippetIds.isEmpty()) return 0;
+        String placeholders = snippetIds.stream().map(id -> "?").collect(Collectors.joining(","));
+        List<Object> params = new java.util.ArrayList<>();
+        params.add(userId);
+        params.addAll(snippetIds);
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_snippet_progress WHERE user_id = ? AND completed = true AND snippet_id IN (" + placeholders + ")",
+                Integer.class, params.toArray());
+        return count != null ? count : 0;
     }
 
     private String nullIfBlank(String s) {
