@@ -99,6 +99,16 @@ public class AiService {
                 Always return valid JSON only — no markdown, no explanation, no extra text.
                 """;
 
+        String[] angles = {
+                "focus on specific details and facts mentioned in the text",
+                "focus on the main idea and overall meaning",
+                "focus on cause-and-effect relationships in the text",
+                "focus on the author's reasoning and conclusions",
+                "focus on vocabulary and how key terms are used",
+                "focus on implications and what can be inferred from the text"
+        };
+        String angle = angles[new Random().nextInt(angles.length)];
+
         String userPrompt = String.format("""
                 The user just finished reading this snippet:
 
@@ -112,6 +122,8 @@ public class AiService {
                 - HIGH:   test critical thinking and connections between ideas
 
                 Generate exactly 3 multiple-choice questions grounded in this snippet.
+                This is a new attempt — %s.
+                Make sure these questions are different from any previous questions about this text.
 
                 Return a JSON array with exactly 3 objects, each shaped exactly like this:
                 {
@@ -132,7 +144,8 @@ public class AiService {
                 snippet.getSnippetTitle(),
                 snippet.getSnippetText(),
                 user.getFocusScore() != null ? user.getFocusScore() : 0.0,
-                difficulty
+                difficulty,
+                angle
         );
 
         String rawJson = callAiApi(systemPrompt, userPrompt);
