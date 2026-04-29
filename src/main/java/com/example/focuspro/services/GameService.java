@@ -63,8 +63,11 @@ public class GameService {
 
         // Unified formula: points = level(1-5) × (100 - dailyScore) / 100, rounded to 1dp.
         // Higher level → more points. Higher daily score → fewer points (natural cap at 100).
+        // train_of_thought only awards points on level completion, never on game-over.
         double dailyScore = dailyScoreService.getTodayScore(user.getId());
-        double focusScoreGained = calcGamePoints(request.getLevelReached(), dailyScore);
+        double focusScoreGained = (!request.isCompleted() && "train_of_thought".equals(request.getGameType()))
+                ? 0.0
+                : calcGamePoints(request.getLevelReached(), dailyScore);
 
         int score = calculateScore(request);
 
