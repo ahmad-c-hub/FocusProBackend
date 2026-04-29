@@ -15,6 +15,7 @@ import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -78,6 +79,7 @@ public class AiService {
      * Returns 3 MCQ questions specific to that snippet + personalised to the user's level.
      * Cached per user+snippet — safe to call multiple times without re-hitting the AI.
      */
+    @Transactional
     public List<AiQuestionDTO> generateSnippetQuestions(Integer snippetId) {
         Users user = currentUser();
 
