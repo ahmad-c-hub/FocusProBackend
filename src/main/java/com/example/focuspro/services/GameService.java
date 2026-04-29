@@ -40,6 +40,9 @@ public class GameService {
     @Autowired
     private DailyScoreService dailyScoreService;
 
+    @Autowired
+    private DailyChallengeService dailyChallengeService;
+
     /** Games that use the level roadmap and their max levels. */
     private static final Set<String> LEVEL_GAMES =
             Set.of("memory_matrix", "number_stream", "pattern_trail", "train_of_thought");
@@ -97,6 +100,14 @@ public class GameService {
                 buildDescription(request, game, score),
                 buildJsonData(request, focusScoreGained, score)
         );
+
+        // Auto-complete daily GAME challenge after 2 completed sessions
+        if (request.isCompleted()) {
+            try {
+                dailyChallengeService.checkAndAutoCompleteGameChallenge(
+                        user.getId(), request.getGameType());
+            } catch (Exception ignored) {}
+        }
 
         try {
             dailyScoreService.addPoints(user.getId(), focusScoreGained);

@@ -30,6 +30,9 @@ public class BookService {
     @Autowired
     private ActivityLogService activityLogService;
 
+    @Autowired
+    private DailyChallengeService dailyChallengeService;
+
 
     // ── BOOK METHODS ──────────────────────────────────────────
 
@@ -109,6 +112,13 @@ public class BookService {
                 snippetId,
                 "text"
         );
+
+        // Auto-complete daily BOOK challenge after 2 snippets of the target book are read
+        try {
+            bookSnippetRepo.findById(snippetId).ifPresent(snippet ->
+                    dailyChallengeService.checkAndAutoCompleteBookChallenge(
+                            user.getId(), snippet.getBookId()));
+        } catch (Exception ignored) {}
 
         // Log the activity — resolve snippet + book title for a meaningful description
         try {
