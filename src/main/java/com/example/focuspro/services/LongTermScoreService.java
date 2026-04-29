@@ -62,26 +62,41 @@ public class LongTermScoreService {
             return new LongTermScoreData(null, null);
         }
 
-        LocalDate yesterday  = LocalDate.now().minusDays(1);
-        LocalDate startDate  = LocalDate.now().minusDays(LOOKBACK_DAYS);
+        LocalDate today     = LocalDate.now();
+        LocalDate startDate = today.minusDays(LOOKBACK_DAYS);
 
         // Fetch all daily scores in the window, build a date → points map
         List<DailyScore> records = dailyScoreRepo
                 .findByUserIdAndScoreDateBetweenOrderByScoreDateAsc(
-                        user.getId(), startDate, yesterday);
+                        user.getId(), startDate, today);
 
         // Use effective points (raw minus screen penalty) so heavy phone usage
         // naturally lowers the long-term EMA score.
         Map<LocalDate, Double> scoreMap = records.stream()
                 .collect(Collectors.toMap(DailyScore::getScoreDate, DailyScore::getEffectivePoints));
 
-        // Walk up to yesterday → current long-term score
-        double currentScore = computeWalk(seed, startDate, yesterday, scoreMap);
+        // If the user has no history at all (brand-new account), return the
+        // current focusScore directly — don't walk through hundreds of empty
+        // days which would decay the score to near zero.
+        if (scoreMap.isEmpty()) {
+            return new LongTermScoreData(seed, 0.0);
+        }
 
-        // Walk up to 7 days ago → score a week ago (for trend)
-        LocalDate weekAgoDate  = yesterday.minusDays(6);
-        double    scoreWeekAgo = computeWalk(seed, startDate, weekAgoDate, scoreMap);
-        double    weekTrend    = currentScore - scoreWeekAgo;
+        // Walk starts from the date of the first actual record, not 365 days ago,
+        // so empty days before the user even registered don't cause decay.
+        LocalDate walkStart = records.get(0).getScoreDate();
+
+        // Walk up to today → current long-term score
+        double currentScore = computeWalk(seed, walkStart, today, scoreMap);
+
+        // 7-day trend: score now minus score 7 days ago.
+        // If the user has less than 7 days of history, trend is 0.
+        LocalDate weekAgoDate = today.minusDays(7);
+        double weekTrend = 0.0;
+        if (!walkStart.isAfter(weekAgoDate)) {
+            double scoreWeekAgo = computeWalk(seed, walkStart, weekAgoDate, scoreMap);
+            weekTrend = currentScore - scoreWeekAgo;
+        }
 
         return new LongTermScoreData(currentScore, weekTrend);
     }
