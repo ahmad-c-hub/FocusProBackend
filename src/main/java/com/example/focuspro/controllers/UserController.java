@@ -1,6 +1,8 @@
 package com.example.focuspro.controllers;
 
+import com.example.focuspro.dtos.ChangePasswordRequest;
 import com.example.focuspro.dtos.CompleteProfileRequest;
+import com.example.focuspro.dtos.UpdateProfileRequest;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.OAuthCodeStore;
 import com.example.focuspro.services.UserService;
@@ -49,15 +51,35 @@ public class UserController {
     }
 
     @PutMapping("/update-profile")
-    public void activateConsent() {
+    public ResponseEntity<Void> updateProfile(
+            @RequestBody(required = false) UpdateProfileRequest request) {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        userService.activateConsent(userNavigating);
+        userService.updateProfile(userNavigating, request);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/complete-profile")
     public void completeProfile(@RequestBody CompleteProfileRequest request) {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         userService.completeProfile(userNavigating, request);
+    }
+
+    @PutMapping("/change-password")
+    public ResponseEntity<String> changePassword(@RequestBody ChangePasswordRequest request) {
+        Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        try {
+            userService.changePassword(userNavigating, request);
+            return ResponseEntity.ok("Password changed successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/account")
+    public ResponseEntity<String> deleteAccount() {
+        Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        userService.deleteAccount(userNavigating);
+        return ResponseEntity.ok("Account deleted.");
     }
 
     /**
