@@ -66,17 +66,19 @@ public class GameService {
         double dailyScore = dailyScoreService.getTodayScore(user.getId());
         double focusScoreGained = calcGamePoints(request.getLevelReached(), dailyScore);
 
+        int score = calculateScore(request);
+
         GameResult result = new GameResult();
         result.setGameId(game.getId());
         result.setUserId(user.getId());
-        result.setScore(request.getScore());
+        result.setScore(score);
         result.setTimePlayedSeconds(request.getTimePlayedSeconds());
         result.setCompleted(request.isCompleted());
         result.setFocusScoreGained(focusScoreGained);
         result.setPlayedAt(LocalDateTime.now());
         gameResultRepo.save(result);
 
-        double newFocusScore = Math.min(100.0, currentScore + focusScoreGained);
+        double newFocusScore = Math.min(100.0, user.getFocusScore() + focusScoreGained);
         user.setFocusScore(newFocusScore);
         userRepo.save(user);
 
@@ -89,8 +91,8 @@ public class GameService {
         activityLogService.log(
                 user.getId(),
                 "GAME_PLAYED",
-                buildDescription(request, game),
-                buildJsonData(request, focusScoreGained)
+                buildDescription(request, game, score),
+                buildJsonData(request, focusScoreGained, score)
         );
 
         try {
@@ -140,17 +142,38 @@ public class GameService {
      * dailyScore – today's accumulated score [0, 100].
      * Returns a value in [0.0, 5.0] with one decimal place, e.g. 3.7.
      */
+    /**
+     * Group 1 (correct/total): color_match, speed_match, train_of_thought
+     * Group 2 (mistakes):      pattern_trail, number_stream, memory_matrix
+     * Group 3 (time+diff):     sudoku
+     */
+    private static final java.util.Set<String> GROUP1 =
+            java.util.Set.of("color_match", "speed_match", "train_of_thought");
+
+    private int calculateScore(GameResultSubmitRequest req) {
+        String type = req.getGameType();
+        int level = req.getLevelReached();
+        if (GROUP1.contains(type)) {
+            double accuracy = req.getTotal() > 0 ? (double) req.getCorrect() / req.getTotal() : 0.5;
+            return (int) Math.min(1000, Math.max(0, Math.round(level * 100 + accuracy * 400)));
+        } else {
+            // Group 2: pattern_trail, number_stream, memory_matrix
+            double accuracy = Math.max(0.0, 1.0 - req.getMistakes() * 0.1);
+            return (int) Math.min(1000, Math.max(0, Math.round(level * 100 + accuracy * 400)));
+        }
+    }
+
     private double calcGamePoints(int level, double dailyScore) {
         int lvl = Math.max(1, Math.min(level, 5));
         double raw = lvl * (100.0 - Math.max(0.0, Math.min(100.0, dailyScore))) / 100.0;
         return Math.round(Math.max(0.0, Math.min(5.0, raw)) * 10.0) / 10.0;
     }
 
-    private String buildDescription(GameResultSubmitRequest req, Game game) {
+    private String buildDescription(GameResultSubmitRequest req, Game game, int score) {
         return switch (req.getGameType()) {
             case "memory_matrix" ->
                     String.format("Played Memory Matrix — Score: %d, Level reached: %d",
-                            req.getScore(), req.getLevelReached());
+                            score, req.getLevelReached());
             case "sudoku" ->
                     req.isCompleted()
                             ? String.format("Completed Sudoku — Time: %s, Mistakes: %d",
@@ -159,12 +182,12 @@ public class GameService {
             case "train_of_thought" ->
                     req.isCompleted()
                             ? String.format("Completed Train of Thought — Level: %d, Score: %d",
-                                    req.getLevelReached(), req.getScore())
+                                    req.getLevelReached(), score)
                             : String.format("Played Train of Thought — Level: %d, Score: %d",
-                                    req.getLevelReached(), req.getScore());
+                                    req.getLevelReached(), score);
             case "number_stream" ->
                     String.format("Played Number Stream — Score: %d, Level: %d, Mistakes: %d",
-                            req.getScore(), req.getLevelReached(), req.getMistakes());
+                            score, req.getLevelReached(), req.getMistakes());
             case "color_match" -> {
                 String diffLabel = switch (req.getLevelReached()) {
                     case 1  -> "Easy";
@@ -174,29 +197,29 @@ public class GameService {
                 };
                 yield req.isCompleted()
                         ? String.format("Finished Color Match (%s) — Score: %d, Accuracy: %d%%",
-                                diffLabel, req.getScore(), accuracyPct(req))
+                                diffLabel, score, accuracyPct(req, score))
                         : String.format("Played Color Match (%s) — Score: %d, Mistakes: %d",
-                                diffLabel, req.getScore(), req.getMistakes());
+                                diffLabel, score, req.getMistakes());
             }
             case "visual_nback" ->
                     String.format("Played Visual N-Back — Score: %d, Hits: %d, False alarms: %d",
-                            req.getScore(), req.getLevelReached(), req.getMistakes());
+                            score, req.getLevelReached(), req.getMistakes());
             case "go_no_go" ->
                     String.format("Played Go/No-Go — Score: %d, Inhibitions: %d, Commission errors: %d",
-                            req.getScore(), req.getLevelReached(), req.getMistakes());
+                            score, req.getLevelReached(), req.getMistakes());
             case "flanker_task" ->
                     String.format("Played Flanker Task — Score: %d, Correct: %d, Errors: %d",
-                            req.getScore(), req.getLevelReached(), req.getMistakes());
+                            score, req.getLevelReached(), req.getMistakes());
             default -> "Played " + game.getTitle();
         };
     }
 
-    private String buildJsonData(GameResultSubmitRequest req, double gained) {
+    private String buildJsonData(GameResultSubmitRequest req, double gained, int score) {
         return String.format(
                 "{\"gameType\":\"%s\",\"score\":%d,\"completed\":%b," +
                 "\"timePlayedSeconds\":%d,\"levelReached\":%d," +
                 "\"mistakes\":%d,\"focusScoreGained\":%.2f}",
-                req.getGameType(), req.getScore(), req.isCompleted(),
+                req.getGameType(), score, req.isCompleted(),
                 req.getTimePlayedSeconds(), req.getLevelReached(),
                 req.getMistakes(), gained
         );
@@ -208,9 +231,9 @@ public class GameService {
         return String.format("%d:%02d", min, sec);
     }
 
-    /** Estimates accuracy % from score and mistakes (color_match: 100 pts base per correct). */
-    private int accuracyPct(GameResultSubmitRequest req) {
-        int correct = req.getScore() / 100; // rough lower-bound (ignores streak bonus)
+    /** Estimates accuracy % from score (color_match: 100 pts base per correct). */
+    private int accuracyPct(GameResultSubmitRequest req, int score) {
+        int correct = score / 100; // rough lower-bound (ignores streak bonus)
         int total   = correct + req.getMistakes();
         if (total == 0) return 0;
         return (int) Math.round(correct * 100.0 / total);
