@@ -107,8 +107,13 @@ public class DiagnosticService {
             );
         }
 
-        // 5. Update user's focus score
+        // 5. Update user's focus score and seed the long-term score
         user.setFocusScore(focusScore);
+        // Seed long_term_score from the diagnostic result so the profile
+        // shows a score immediately without waiting for the midnight scheduler.
+        if (user.getLongTermScore() == null || user.getLongTermScore() == 0.0) {
+            user.setLongTermScore(focusScore);
+        }
         userRepo.save(user);
 
         activityLogService.log(

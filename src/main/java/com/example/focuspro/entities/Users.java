@@ -49,6 +49,9 @@ public class Users implements UserDetails {
     @Column(name = "focus_score")
     private Double focusScore = 0.0;
 
+    @Column(name = "long_term_score")
+    private Double longTermScore = 0.0;
+
     @Column(name = "created_at",
             columnDefinition = "TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP")
     private OffsetDateTime createdAt;

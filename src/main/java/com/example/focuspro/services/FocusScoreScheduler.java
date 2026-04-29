@@ -60,9 +60,14 @@ public class FocusScoreScheduler {
         int skipped = 0;
 
         for (Users user : users) {
-            Double current = user.getFocusScore();
+            // Use long_term_score as the running value.
+            // If it hasn't been seeded yet, fall back to focus_score (diagnostic baseline).
+            Double current = user.getLongTermScore();
+            if (current == null || current == 0.0) {
+                current = user.getFocusScore();
+            }
 
-            // Skip users who haven't completed the diagnostic yet
+            // Skip users who have no baseline at all (diagnostic not done)
             if (current == null || current == 0.0) {
                 skipped++;
                 continue;
@@ -76,7 +81,8 @@ public class FocusScoreScheduler {
 
             double newScore = LongTermScoreService.applyOneDay(current, effectivePts);
 
-            user.setFocusScore(newScore);
+            // Save back to long_term_score only — focus_score is untouched
+            user.setLongTermScore(newScore);
             userRepo.save(user);
             updated++;
 
