@@ -61,14 +61,10 @@ public class GameService {
                     return g;
                 });
 
-        double rawGain = calculateFocusScoreGained(request);
-
-        // Diminishing returns: the closer to 100, the less each session adds.
-        // factor = ((100 - currentScore) / 100) ^ 0.6
-        // At score 0 → ×1.0 | score 50 → ×0.66 | score 80 → ×0.44 | score 95 → ×0.23
-        double currentScore = user.getFocusScore() != null ? user.getFocusScore() : 0.0;
-        double scalingFactor = Math.pow(Math.max(0.0, (100.0 - currentScore) / 100.0), 0.6);
-        double focusScoreGained = Math.round(rawGain * scalingFactor * 10.0) / 10.0;
+        // Unified formula: points = level(1-5) × (100 - dailyScore) / 100, rounded to 1dp.
+        // Higher level → more points. Higher daily score → fewer points (natural cap at 100).
+        double dailyScore = dailyScoreService.getTodayScore(user.getId());
+        double focusScoreGained = calcGamePoints(request.getLevelReached(), dailyScore);
 
         GameResult result = new GameResult();
         result.setGameId(game.getId());
@@ -138,10 +134,16 @@ public class GameService {
 
     // ── Focus score formulas ───────────────────────────────────────────────────
 
-    private double calculateFocusScoreGained(GameResultSubmitRequest req) {
-        // All games normalize their score to 0-1000 on the frontend.
-        // 1000 = perfect play → 5.0 focus pts. Formula is identical for every game.
-        return Math.min(5.0, req.getScore() / 200.0);
+    /**
+     * Unified scoring formula shared by every game.
+     * level    – player's current level, clamped to [1, 5].
+     * dailyScore – today's accumulated score [0, 100].
+     * Returns a value in [0.0, 5.0] with one decimal place, e.g. 3.7.
+     */
+    private double calcGamePoints(int level, double dailyScore) {
+        int lvl = Math.max(1, Math.min(level, 5));
+        double raw = lvl * (100.0 - Math.max(0.0, Math.min(100.0, dailyScore))) / 100.0;
+        return Math.round(Math.max(0.0, Math.min(5.0, raw)) * 10.0) / 10.0;
     }
 
     private String buildDescription(GameResultSubmitRequest req, Game game) {
