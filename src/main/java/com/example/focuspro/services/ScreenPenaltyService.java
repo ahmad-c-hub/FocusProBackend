@@ -65,6 +65,23 @@ public class ScreenPenaltyService {
      * @param usageList  today's {@link DailyAppUsage} rows for one user
      * @return           integer penalty to subtract from the daily score
      */
+    /**
+     * Sums the total minutes spent on ALL tracked distracting apps for the given day.
+     * Used by UserStatsService to surface the "distracting minutes" stat.
+     *
+     * @param usageList  today's {@link DailyAppUsage} rows for one user
+     * @return           total minutes on distracting apps (tier 1 + tier 2), no cap
+     */
+    public int totalDistractingMinutes(List<DailyAppUsage> usageList) {
+        int total = 0;
+        for (DailyAppUsage usage : usageList) {
+            if (TIER_MAP.containsKey(usage.getPackageName())) {
+                total += usage.getTotalMinutes();
+            }
+        }
+        return total;
+    }
+
     public int computePenalty(List<DailyAppUsage> usageList) {
         int total = 0;
         for (DailyAppUsage usage : usageList) {

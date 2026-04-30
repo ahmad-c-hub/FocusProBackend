@@ -1,53 +1,73 @@
 package com.example.focuspro.services;
 
+import com.example.focuspro.entities.LockInSession;
 import com.example.focuspro.repos.ActivityLogRepo;
+import com.example.focuspro.repos.DailyAppUsageRepo;
 import com.example.focuspro.repos.GameResultRepo;
+import com.example.focuspro.repos.LockInSessionRepo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.List;
 
 /**
- * Computes real usage statistics for the profile page.
+ * Computes real usage statistics for the profile and home pages.
  *
- * All three numbers are derived from existing DB tables — no new tables needed.
- *
- *   games_played     – count of rows in game_results for this user
- *   focus_minutes    – sum of time_played_seconds from game_results, converted to minutes
- *   books_explored   – count of distinct "AI_RETENTION_TEST_SUBMITTED" activity-log
- *                      events (one per book the user has done a retention test on)
+ *   games_played          – total game sessions (rows) the user has ever played
+ *   focus_minutes         – game session time + completed lock-in session time
+ *   books_explored        – count of AI_RETENTION_TEST_SUBMITTED activity-log entries (no cap)
+ *   distracting_minutes   – total minutes on tracked distracting apps today
  */
 @Service
 public class UserStatsService {
 
-    @Autowired
-    private GameResultRepo gameResultRepo;
+    @Autowired private GameResultRepo       gameResultRepo;
+    @Autowired private ActivityLogRepo      activityLogRepo;
+    @Autowired private LockInSessionRepo    lockInSessionRepo;
+    @Autowired private DailyAppUsageRepo    dailyAppUsageRepo;
+    @Autowired private ScreenPenaltyService screenPenaltyService;
 
-    @Autowired
-    private ActivityLogRepo activityLogRepo;
-
-    public record UserStats(int gamesPlayed, int focusMinutes, int booksExplored) {}
+    public record UserStats(
+            int gamesPlayed,
+            int focusMinutes,
+            int booksExplored,
+            int distractingMinutes) {}
 
     public UserStats getStats(int userId) {
+
         // ── Games played ──────────────────────────────────────────────────────
-        // Count distinct game types the user has ever tried (max = number of games in the app).
-        int gamesPlayed = gameResultRepo.countDistinctGamesByUserId(userId);
+        // Count every session row — not just distinct game types.
+        int gamesPlayed = gameResultRepo.countAllByUserId(userId);
 
         // ── Focus time (minutes) ──────────────────────────────────────────────
-        // Sum seconds from every game session the user has completed.
-        int totalSeconds = gameResultRepo.findByUserIdOrderByPlayedAtDesc(userId)
+        // 1. Seconds from every game session
+        int gameSeconds = gameResultRepo.findByUserIdOrderByPlayedAtDesc(userId)
                 .stream()
                 .mapToInt(r -> r.getTimePlayedSeconds())
                 .sum();
-        int focusMinutes = totalSeconds / 60;
+
+        // 2. Duration of every completed lock-in session (startedAt → endedAt)
+        List<LockInSession> completedSessions =
+                lockInSessionRepo.findByUserIdAndEndedAtIsNotNull(userId);
+        long lockInSeconds = completedSessions.stream()
+                .mapToLong(s -> Duration.between(s.getStartedAt(), s.getEndedAt()).getSeconds())
+                .sum();
+
+        int focusMinutes = (int) ((gameSeconds + lockInSeconds) / 60);
 
         // ── Books explored ────────────────────────────────────────────────────
-        // Each AI_RETENTION_TEST_SUBMITTED log entry represents one book session.
-        // We count how many the user has submitted (regardless of pass/fail).
+        // Real count — no 20-entry cap.
         int booksExplored = activityLogRepo
-                .findTop20ByUserIdAndActivityTypeOrderByActivityDateDesc(userId, "AI_RETENTION_TEST_SUBMITTED")
-                .size();
+                .countByUserIdAndActivityType(userId, "AI_RETENTION_TEST_SUBMITTED");
 
-        return new UserStats(gamesPlayed, focusMinutes, booksExplored);
+        // ── Distracting minutes (today) ───────────────────────────────────────
+        // Sum of all tracked distracting-app minutes from today's usage rows.
+        int distractingMinutes = screenPenaltyService.totalDistractingMinutes(
+                dailyAppUsageRepo.findByUserIdAndUsageDateOrderByTotalMinutesDesc(
+                        userId, LocalDate.now()));
+
+        return new UserStats(gamesPlayed, focusMinutes, booksExplored, distractingMinutes);
     }
 }

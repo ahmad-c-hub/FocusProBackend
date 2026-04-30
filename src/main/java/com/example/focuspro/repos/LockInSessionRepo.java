@@ -12,4 +12,7 @@ import java.util.Optional;
 public interface LockInSessionRepo extends JpaRepository<LockInSession, Long> {
     List<LockInSession> findByUserIdAndSessionDate(int userId, LocalDate sessionDate);
     Optional<LockInSession> findByUserIdAndEndedAtIsNull(int userId);
+
+    /** All completed lock-in sessions for a user (endedAt is set = session finished). */
+    List<LockInSession> findByUserIdAndEndedAtIsNotNull(int userId);
 }

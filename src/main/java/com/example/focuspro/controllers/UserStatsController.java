@@ -16,9 +16,10 @@ import java.util.Map;
  *
  * Response:
  * {
- *   "gamesPlayed":   <int>,   // total game sessions ever played
- *   "focusMinutes":  <int>,   // total minutes spent in game sessions
- *   "booksExplored": <int>    // number of books the user has done a retention test on
+ *   "gamesPlayed":        <int>,   // total game sessions ever played
+ *   "focusMinutes":       <int>,   // game time + lock-in session time, in minutes
+ *   "booksExplored":      <int>,   // number of books the user has done a retention test on
+ *   "distractingMinutes": <int>    // total minutes on tracked distracting apps today
  * }
  */
 @RestController
@@ -43,9 +44,10 @@ public class UserStatsController {
         UserStatsService.UserStats stats = userStatsService.getStats(user.getId());
 
         return ResponseEntity.ok(Map.of(
-                "gamesPlayed",   stats.gamesPlayed(),
-                "focusMinutes",  stats.focusMinutes(),
-                "booksExplored", stats.booksExplored()
+                "gamesPlayed",        stats.gamesPlayed(),
+                "focusMinutes",       stats.focusMinutes(),
+                "booksExplored",      stats.booksExplored(),
+                "distractingMinutes", stats.distractingMinutes()
         ));
     }
 }
