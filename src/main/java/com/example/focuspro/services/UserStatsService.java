@@ -90,9 +90,9 @@ public class UserStatsService {
 
         int focusMinutesToday = (int) ((gameSecondsToday + lockInSecondsToday) / 60);
 
-        // Snippets explored today
+        // Snippets explored today — count passed comprehension quizzes
         int snippetsToday = activityLogRepo.countByUserIdAndActivityTypeToday(
-                userId, "BOOK_SNIPPET_READ", startOfDay);
+                userId, "AI_COMPREHENSION_PASSED", startOfDay);
 
         return new UserStats(gamesPlayedToday, focusMinutesToday, snippetsToday, 0);
     }
