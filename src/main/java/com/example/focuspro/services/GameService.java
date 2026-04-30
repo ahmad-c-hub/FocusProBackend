@@ -199,6 +199,12 @@ public class GameService {
                                     req.getLevelReached(), score)
                             : String.format("Played Train of Thought — Level: %d, Score: %d",
                                     req.getLevelReached(), score);
+            case "pattern_trail" ->
+                    req.isCompleted()
+                            ? String.format("Completed Pattern Trail — Level: %d, Score: %d",
+                                    req.getLevelReached() - 1, score)
+                            : String.format("Played Pattern Trail — Level: %d, Mistakes: %d",
+                                    req.getLevelReached(), req.getMistakes());
             case "number_stream" ->
                     String.format("Played Number Stream — Score: %d, Level: %d, Mistakes: %d",
                             score, req.getLevelReached(), req.getMistakes());
