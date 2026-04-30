@@ -10,4 +10,7 @@ public interface ActivityLogRepo extends JpaRepository<ActivityLog, Long> {
     List<ActivityLog> findByUserIdOrderByActivityDateDesc(int userId);
 
     List<ActivityLog> findTop20ByUserIdAndActivityTypeOrderByActivityDateDesc(int userId, String activityType);
+
+    /** Real count of all activity-log entries matching a given type — no artificial cap. */
+    int countByUserIdAndActivityType(int userId, String activityType);
 }
