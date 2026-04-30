@@ -50,4 +50,18 @@ public class UserStatsController {
                 "distractingMinutes", stats.distractingMinutes()
         ));
     }
+
+    @GetMapping("/stats/today")
+    public ResponseEntity<Map<String, Integer>> getTodayStats() {
+        Users user = (Users) SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
+
+        UserStatsService.UserStats stats = userStatsService.getTodayStats(user.getId());
+
+        return ResponseEntity.ok(Map.of(
+                "gamesPlayed",      stats.gamesPlayed(),
+                "focusMinutes",     stats.focusMinutes(),
+                "snippetsExplored", stats.booksExplored()
+        ));
+    }
 }

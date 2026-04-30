@@ -23,4 +23,12 @@ public interface GameResultRepo extends JpaRepository<GameResult, Long> {
     /** Count completed results today for a specific game (by game entity ID). */
     @Query("SELECT COUNT(r) FROM GameResult r WHERE r.userId = :userId AND r.gameId = :gameId AND r.completed = true AND r.playedAt >= :startOfDay")
     long countCompletedTodayByGameId(@Param("userId") int userId, @Param("gameId") int gameId, @Param("startOfDay") LocalDateTime startOfDay);
+
+    /** Total game sessions played today (any game). */
+    @Query("SELECT COUNT(r) FROM GameResult r WHERE r.userId = :userId AND r.playedAt >= :startOfDay")
+    int countByUserIdToday(@Param("userId") int userId, @Param("startOfDay") LocalDateTime startOfDay);
+
+    /** Sum of timePlayedSeconds for all game sessions today. */
+    @Query("SELECT COALESCE(SUM(r.timePlayedSeconds), 0) FROM GameResult r WHERE r.userId = :userId AND r.playedAt >= :startOfDay")
+    int sumTimePlayedSecondsByUserIdToday(@Param("userId") int userId, @Param("startOfDay") LocalDateTime startOfDay);
 }

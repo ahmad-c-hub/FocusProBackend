@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -69,5 +70,30 @@ public class UserStatsService {
                         userId, LocalDate.now()));
 
         return new UserStats(gamesPlayed, focusMinutes, booksExplored, distractingMinutes);
+    }
+
+    public UserStats getTodayStats(int userId) {
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+
+        // Games played today
+        int gamesPlayedToday = gameResultRepo.countByUserIdToday(userId, startOfDay);
+
+        // Focus minutes today = game time + completed lock-in session time
+        int gameSecondsToday = gameResultRepo.sumTimePlayedSecondsByUserIdToday(userId, startOfDay);
+
+        long lockInSecondsToday = lockInSessionRepo
+                .findByUserIdAndSessionDate(userId, LocalDate.now())
+                .stream()
+                .filter(s -> s.getEndedAt() != null)
+                .mapToLong(s -> Duration.between(s.getStartedAt(), s.getEndedAt()).getSeconds())
+                .sum();
+
+        int focusMinutesToday = (int) ((gameSecondsToday + lockInSecondsToday) / 60);
+
+        // Snippets explored today
+        int snippetsToday = activityLogRepo.countByUserIdAndActivityTypeToday(
+                userId, "BOOK_SNIPPET_READ", startOfDay);
+
+        return new UserStats(gamesPlayedToday, focusMinutesToday, snippetsToday, 0);
     }
 }
