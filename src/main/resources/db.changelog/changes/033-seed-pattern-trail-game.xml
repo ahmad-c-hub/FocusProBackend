@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+          http://www.liquibase.org/xml/ns/dbchangelog
+          https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+    <!-- Insert pattern_trail into the games table if not already present.
+         Without this row, gameRepo.findByType("pattern_trail") returns empty,
+         causing a synthetic Game with id=0 to be used. This means:
+           - game_results are saved with game_id=0 (orphan reference)
+           - computeGameProgress cannot count completions by gameId
+           - the GAME_PLAYED activity log description falls to the generic default
+         All of those issues are fixed once pattern_trail has a real row here. -->
+    <changeSet id="033-seed-pattern-trail-game" author="abd">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM games WHERE type = 'pattern_trail'
+            </sqlCheck>
+        </preConditions>
+        <insert tableName="games">
+            <column name="title"                   value="Pattern Trail"/>
+            <column name="type"                    value="pattern_trail"/>
+            <column name="description"             value="Watch a sequence of dots light up one by one, then tap them back in the exact same order. Sequences grow longer and faster as you level up."/>
+            <column name="level"                   valueNumeric="1"/>
+            <column name="difficulty"              value="medium"/>
+            <column name="target_duration_seconds" valueNumeric="120"/>
+            <column name="created_at"              valueComputed="CURRENT_TIMESTAMP"/>
+            <column name="updated_at"              valueComputed="CURRENT_TIMESTAMP"/>
+        </insert>
+        <rollback>
+            <delete tableName="games"><where>type = 'pattern_trail'</where></delete>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
