@@ -4,13 +4,20 @@ import com.example.focuspro.dtos.ChangePasswordRequest;
 import com.example.focuspro.dtos.CompleteProfileRequest;
 import com.example.focuspro.dtos.UpdateProfileRequest;
 import com.example.focuspro.entities.Users;
+import com.example.focuspro.services.EmailService;
 import com.example.focuspro.services.OAuthCodeStore;
+import com.example.focuspro.services.OtpStore;
 import com.example.focuspro.services.UserService;
+import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.security.SecureRandom;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/user")
@@ -28,6 +35,12 @@ public class UserController {
 
     @Autowired
     private OAuthCodeStore oAuthCodeStore;
+
+    @Autowired
+    private OtpStore otpStore;
+
+    @Autowired
+    private EmailService emailService;
 
     @PostMapping("/register")
     public String register(@RequestBody Users user) {
@@ -94,6 +107,47 @@ public class UserController {
             return ResponseEntity.badRequest().body("Invalid or expired code");
         }
         return ResponseEntity.ok(jwt);
+    }
+
+    /** Step 1 of signup: generate and email a 6-digit OTP. */
+    @PostMapping("/send-otp")
+    public ResponseEntity<String> sendOtp(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body("Email is required");
+        }
+
+        if (userService.emailExists(email.trim())) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already registered");
+        }
+
+        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+        otpStore.store(email.trim(), otp);
+
+        try {
+            emailService.sendOtp(email.trim(), otp);
+        } catch (MessagingException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send verification email");
+        }
+
+        return ResponseEntity.ok("OTP sent");
+    }
+
+    /** Step 2 of signup: validate the OTP the user typed. */
+    @PostMapping("/verify-otp")
+    public ResponseEntity<String> verifyOtp(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String otp   = body.get("otp");
+
+        if (email == null || otp == null || email.isBlank() || otp.isBlank()) {
+            return ResponseEntity.badRequest().body("Email and OTP are required");
+        }
+
+        if (otpStore.verify(email.trim(), otp.trim())) {
+            return ResponseEntity.ok("verified");
+        }
+        return ResponseEntity.badRequest().body("Invalid or expired OTP");
     }
 
 }

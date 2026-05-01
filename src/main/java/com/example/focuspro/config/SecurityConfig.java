@@ -44,7 +44,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/user/login", "/user/register", "/user/logout", "/user/oauth/token",
+                        .requestMatchers("/user/login", "/user/register", "/user/logout",
+                                "/user/oauth/token", "/user/send-otp", "/user/verify-otp",
                                 "/oauth2/**")
                         .permitAll()
                         // ── NEW: allow WebSocket upgrade handshake ──────────────────

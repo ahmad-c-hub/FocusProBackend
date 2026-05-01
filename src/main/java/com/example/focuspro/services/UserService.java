@@ -43,6 +43,9 @@ public class UserService {
     @Autowired
     private ActivityLogService activityLogService;
 
+    @Autowired
+    private OtpStore otpStore;
+
     public String register(Users user) {
         if (user.getUsername() == null || user.getEmail() == null || user.getPassword() == null
                 || user.getName() == null || user.getDob() == null) {
@@ -55,15 +58,18 @@ public class UserService {
         if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email already registered");
         }
+        if (!otpStore.isVerified(user.getEmail())) {
+            throw new IllegalArgumentException("Email not verified");
+        }
         user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
         user.setCreatedAt(java.time.OffsetDateTime.now());
-        user.setLastLogin(java.time.OffsetDateTime.now()); // ADD THIS
+        user.setLastLogin(java.time.OffsetDateTime.now());
         Role role = roleRepo.findByName("ROLE_USER").orElseThrow(() -> new IllegalArgumentException("Role not found"));
         user.setRole(role);
         userRepository.save(user);
+        otpStore.clearVerified(user.getEmail());
         activityLogService.log(user.getId(), "REGISTER", "New account created");
 
-        // Generate and return JWT token instead of success message
         return jwtService.generateToken(user.getUsername());
     }
 
@@ -194,5 +200,9 @@ public class UserService {
         user.setDeletedAt(java.time.OffsetDateTime.now());
         userRepository.save(user);
         activityLogService.log(user.getId(), "ACCOUNT_DELETE", "User deleted their account");
+    }
+
+    public boolean emailExists(String email) {
+        return userRepository.findByEmail(email.trim().toLowerCase()).isPresent();
     }
 }
