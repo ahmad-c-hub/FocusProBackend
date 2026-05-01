@@ -113,6 +113,12 @@
             <version>9.2.0</version>
         </dependency>
 
+        <!-- Email (OTP verification) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- VAPID Web Push (browser push without Firebase) -->
         <dependency>
             <groupId>nl.martijndwars</groupId>
