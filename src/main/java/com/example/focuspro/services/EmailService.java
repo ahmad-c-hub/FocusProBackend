@@ -1,27 +1,53 @@
 package com.example.focuspro.services;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${resend.api.key}")
+    private String apiKey;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
+    private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    public void sendOtp(String to, String otp) throws MessagingException {
-        MimeMessage msg = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(msg, "utf-8");
-        helper.setTo(to);
-        helper.setSubject("Your LockedIn verification code");
-        helper.setText(buildHtml(otp), true);
-        mailSender.send(msg);
+    public void sendOtp(String to, String otp) throws IOException, InterruptedException {
+        String html = buildHtml(otp);
+
+        // Escape the HTML so it can be safely embedded as a JSON string value
+        String escapedHtml = html
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r\n", "\\n")
+                .replace("\n", "\\n")
+                .replace("\r", "\\n")
+                .replace("\t", "\\t");
+
+        String jsonBody = "{"
+                + "\"from\":\"LockedIn <onboarding@resend.dev>\","
+                + "\"to\":[\"" + to + "\"],"
+                + "\"subject\":\"Your LockedIn verification code\","
+                + "\"html\":\"" + escapedHtml + "\""
+                + "}";
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.resend.com/emails"))
+                .header("Authorization", "Bearer " + apiKey)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IOException("Resend API error " + response.statusCode() + ": " + response.body());
+        }
     }
 
     private String buildHtml(String otp) {
@@ -61,7 +87,7 @@ public class EmailService {
                           <div style="display:inline-block;background:#F3F4F5;
                                       border-radius:14px;padding:20px 44px;">
                             <span style="font-size:44px;font-weight:900;letter-spacing:14px;
-                                         color:#012D1D;font-family:'Courier New',Courier,monospace;">
+                                         color:#012D1D;font-family:Courier New,Courier,monospace;">
                               %s
                             </span>
                           </div>
