@@ -12,7 +12,7 @@ import java.net.http.HttpResponse;
 @Service
 public class EmailService {
 
-    @Value("${resend.api.key}")
+    @Value("${brevo.api.key}")
     private String apiKey;
 
     private final HttpClient httpClient = HttpClient.newHttpClient();
@@ -30,15 +30,15 @@ public class EmailService {
                 .replace("\t", "\\t");
 
         String jsonBody = "{"
-                + "\"from\":\"LockedIn <onboarding@resend.dev>\","
-                + "\"to\":[\"" + to + "\"],"
+                + "\"sender\":{\"name\":\"LockedIn\",\"email\":\"abdelrahmansamad65@gmail.com\"},"
+                + "\"to\":[{\"email\":\"" + to + "\"}],"
                 + "\"subject\":\"Your LockedIn verification code\","
-                + "\"html\":\"" + escapedHtml + "\""
+                + "\"htmlContent\":\"" + escapedHtml + "\""
                 + "}";
 
         HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create("https://api.resend.com/emails"))
-                .header("Authorization", "Bearer " + apiKey)
+                .uri(URI.create("https://api.brevo.com/v3/smtp/email"))
+                .header("api-key", apiKey)
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                 .build();
@@ -46,7 +46,7 @@ public class EmailService {
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new IOException("Resend API error " + response.statusCode() + ": " + response.body());
+            throw new IOException("Brevo API error " + response.statusCode() + ": " + response.body());
         }
     }
 
