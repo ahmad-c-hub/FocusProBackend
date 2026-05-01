@@ -282,23 +282,27 @@ public class NotificationService {
 
         boolean delivered = false;
 
-        // Priority 1: VAPID Web Push (background even when tab closed).
-        // Only marks delivered=true if the user actually has a registered subscription;
-        // otherwise falls through to polling so the notification isn't silently dropped.
+        // Channel 1: VAPID Web Push (browser — works even when tab is closed).
         if (webPushService.isEnabled()) {
-            delivered = webPushService.sendToUser(notif.getUserId(), notif.getTitle(), notif.getMessage());
+            boolean webSent = webPushService.sendToUser(notif.getUserId(), notif.getTitle(), notif.getMessage());
+            if (webSent) delivered = true;
         }
 
-        // Priority 2: FCM (native mobile app)
-        if (!delivered && firebaseEnabled
-                && user.getFcmToken() != null && !user.getFcmToken().isBlank()) {
-            sendFcm(user.getFcmToken(), notif.getTitle(), notif.getMessage(),
-                    Map.of("goalId", String.valueOf(notif.getGoalId()),
-                           "type",   notif.getNotificationType().name()));
-            delivered = true;
+        // Channel 2: FCM (Android native app — independent of web push).
+        // Send to BOTH channels so the user gets it on every device they are logged in to.
+        if (firebaseEnabled && user.getFcmToken() != null && !user.getFcmToken().isBlank()) {
+            try {
+                sendFcm(user.getFcmToken(), notif.getTitle(), notif.getMessage(),
+                        Map.of("goalId", notif.getGoalId() != null ? String.valueOf(notif.getGoalId()) : "",
+                               "type",   notif.getNotificationType().name()));
+                delivered = true;
+                log.info("[Notifications] FCM sent to user={}", notif.getUserId());
+            } catch (Exception e) {
+                log.error("[Notifications] FCM send failed for user={}: {}", notif.getUserId(), e.getMessage());
+            }
         }
 
-        // Priority 3: leave pending — Flutter web polling will show it while tab is open
+        // Fallback: leave pending — Flutter polling picks it up while app is open
         if (!delivered) return;
 
         // Schedule AI follow-up if this was a CHECKIN on a goal-linked notification
