@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.security.SecureRandom;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/user")
@@ -28,6 +30,8 @@ import java.util.Map;
         RequestMethod.OPTIONS })
 
 public class UserController {
+
+    private static final Logger log = LoggerFactory.getLogger(UserController.class);
 
     @Autowired
     private UserService userService;
@@ -77,6 +81,7 @@ public class UserController {
             emailService.sendOtp(email, otp);
             return ResponseEntity.ok("OTP sent");
         } catch (Exception e) {
+            log.error("[send-otp] Resend API error for {}: {}", email, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Failed to send verification email: " + e.getMessage());
         }
