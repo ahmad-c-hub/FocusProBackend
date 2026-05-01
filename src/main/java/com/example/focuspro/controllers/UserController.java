@@ -126,9 +126,9 @@ public class UserController {
 
         try {
             emailService.sendOtp(email.trim(), otp);
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to send verification email");
+                    .body("Failed to send verification email: " + e.getMessage());
         }
 
         return ResponseEntity.ok("OTP sent");
