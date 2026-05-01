@@ -8,7 +8,6 @@ import com.example.focuspro.services.EmailService;
 import com.example.focuspro.services.OAuthCodeStore;
 import com.example.focuspro.services.OtpStore;
 import com.example.focuspro.services.UserService;
-import jakarta.mail.MessagingException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,9 +21,9 @@ import java.util.Map;
 @RestController
 @RequestMapping("/user")
 @CrossOrigin(origins = {
-        "http://localhost:3000", // React
+        "http://localhost:3000",
         "http://10.0.2.2:8080",
-        "https://focuspro-fm2d.onrender.com" // Android emulator access
+        "https://focuspro-fm2d.onrender.com"
 }, allowedHeaders = "*", methods = { RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE,
         RequestMethod.OPTIONS })
 
@@ -42,6 +41,8 @@ public class UserController {
     @Autowired
     private EmailService emailService;
 
+    // ── Auth ──────────────────────────────────────────────────────────────────
+
     @PostMapping("/register")
     public String register(@RequestBody Users user) {
         return userService.register(user);
@@ -57,6 +58,48 @@ public class UserController {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return userService.logout(request, userNavigating);
     }
+
+    // ── OTP Email Verification ────────────────────────────────────────────────
+
+    /**
+     * Step 1: Generate a 6-digit OTP, store it in OtpStore, and email it to the user.
+     * Called before registration so we can confirm the email address exists.
+     */
+    @PostMapping("/send-otp")
+    public ResponseEntity<String> sendOtp(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body("Email is required");
+        }
+        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+        otpStore.store(email, otp);
+        try {
+            emailService.sendOtp(email, otp);
+            return ResponseEntity.ok("OTP sent");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send verification email: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Step 2: Verify the OTP the user typed in.
+     * On success, OtpStore marks the email as verified so /register can proceed.
+     */
+    @PostMapping("/verify-otp")
+    public ResponseEntity<String> verifyOtp(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String otp   = body.get("otp");
+        if (email == null || otp == null) {
+            return ResponseEntity.badRequest().body("Email and OTP are required");
+        }
+        if (otpStore.verify(email, otp)) {
+            return ResponseEntity.ok("Email verified");
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid or expired OTP");
+    }
+
+    // ── Profile ───────────────────────────────────────────────────────────────
 
     @GetMapping("/profile")
     public Users getProfile() {
@@ -95,59 +138,22 @@ public class UserController {
         return ResponseEntity.ok("Account deleted.");
     }
 
+    // ── OAuth Code Exchange ───────────────────────────────────────────────────
+
     /**
      * Exchanges a short-lived one-time OAuth code (received via redirect URL) for
-     * the real JWT.
-     * The code expires in 60 seconds and is deleted on first use.
+     * the real JWT. The code expires in 5 minutes and is deleted on first use.
      */
-    @GetMapping("/oauth/token")
-    public ResponseEntity<String> exchangeOAuthCode(@RequestParam String code) {
+    @PostMapping("/oauth/token")
+    public ResponseEntity<Map<String, String>> exchangeOAuthCode(@RequestBody Map<String, String> body) {
+        String code = body.get("code");
+        if (code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
         String jwt = oAuthCodeStore.exchange(code);
         if (jwt == null) {
-            return ResponseEntity.badRequest().body("Invalid or expired code");
+            return ResponseEntity.status(HttpStatus.GONE).build();
         }
-        return ResponseEntity.ok(jwt);
+        return ResponseEntity.ok(Map.of("token", jwt));
     }
-
-    /** Step 1 of signup: generate and email a 6-digit OTP. */
-    @PostMapping("/send-otp")
-    public ResponseEntity<String> sendOtp(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body("Email is required");
-        }
-
-        if (userService.emailExists(email.trim())) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body("Email already registered");
-        }
-
-        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
-        otpStore.store(email.trim(), otp);
-
-        try {
-            emailService.sendOtp(email.trim(), otp);
-        } catch (MessagingException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Failed to send verification email");
-        }
-
-        return ResponseEntity.ok("OTP sent");
-    }
-
-    /** Step 2 of signup: validate the OTP the user typed. */
-    @PostMapping("/verify-otp")
-    public ResponseEntity<String> verifyOtp(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        String otp   = body.get("otp");
-
-        if (email == null || otp == null || email.isBlank() || otp.isBlank()) {
-            return ResponseEntity.badRequest().body("Email and OTP are required");
-        }
-
-        if (otpStore.verify(email.trim(), otp.trim())) {
-            return ResponseEntity.ok("verified");
-        }
-        return ResponseEntity.badRequest().body("Invalid or expired OTP");
-    }
-
 }
