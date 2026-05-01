@@ -38,14 +38,13 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
     // BCryptPasswordEncoder is stateless — no Spring dependency — so we create it
     // directly here instead of injecting it. Injecting it would cause a circular
     // dependency: OAuth2LoginSuccessHandler → BCryptPasswordEncoder bean →
-    // SecurityConfig
-    // → OAuth2LoginSuccessHandler.
+    // SecurityConfig → OAuth2LoginSuccessHandler.
     private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
-            HttpServletResponse response,
-            Authentication authentication) throws IOException {
+                                        HttpServletResponse response,
+                                        Authentication authentication) throws IOException {
         System.out.println("=== OAuth2LoginSuccessHandler START ===");
 
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
@@ -84,9 +83,27 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         // Store the token server-side and redirect with a short-lived one-time code.
         // This prevents the real JWT from appearing in browser history or server logs.
         String code = oAuthCodeStore.store(jwtToken);
-        String redirectUrl = "https://focuspro-fm2d.onrender.com/#/oauth-callback?code=" + code;
-        System.out.println("Redirecting to: " + redirectUrl);
 
+        // ── Detect mobile WebView vs web browser ──────────────────────────────────
+        // The Flutter WebView sets a custom User-Agent containing "LockedInApp".
+        // Web browsers get the standard redirect to the React/Flutter web frontend.
+        String userAgent = request.getHeader("User-Agent");
+        boolean isMobile = userAgent != null && userAgent.contains("LockedInApp");
+        System.out.println("User-Agent: " + userAgent);
+        System.out.println("Is mobile WebView: " + isMobile);
+
+        String redirectUrl;
+        if (isMobile) {
+            // Mobile: redirect to a fake domain the WebView will intercept.
+            // This URL is never actually loaded — the WebView's NavigationDelegate
+            // catches it, extracts the code, and prevents the navigation.
+            redirectUrl = "https://lockedin-mobile-callback.app/oauth-callback?code=" + code;
+        } else {
+            // Web: redirect to the Flutter web frontend's OAuth callback route.
+            redirectUrl = "https://focuspro-fm2d.onrender.com/#/oauth-callback?code=" + code;
+        }
+
+        System.out.println("Redirecting to: " + redirectUrl);
         response.sendRedirect(redirectUrl);
         System.out.println("=== OAuth2LoginSuccessHandler END ===");
     }

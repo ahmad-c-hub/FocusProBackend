@@ -15,7 +15,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class OAuthCodeStore {
 
-    private static final long TTL_SECONDS = 60;
+    // 5 minutes — generous enough for slow connections and Render cold starts,
+    // but short enough to be effectively single-use in practice.
+    private static final long TTL_SECONDS = 300;
 
     private record Entry(String jwt, Instant expiresAt) {}
 
