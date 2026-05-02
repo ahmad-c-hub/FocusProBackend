@@ -167,23 +167,22 @@ public class UserController {
     // ── Forgot Password ───────────────────────────────────────────────────────
 
     /**
-     * Step 1: User submits their email. If registered, generate an OTP and email it.
-     * Always returns 200 to avoid leaking whether an email is registered.
+     * Step 1: Validate that the username exists and the email matches, then send an OTP.
      */
     @PostMapping("/forgot-password")
     public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> body) {
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            return ResponseEntity.badRequest().body("Email is required.");
-        }
-        if (!userService.emailExists(email)) {
-            return ResponseEntity.ok("If this email is registered, a reset code has been sent.");
+        String username = body.get("username");
+        String email    = body.get("email");
+        try {
+            userService.validateForgotPassword(username, email);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
         String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
         otpStore.store(email, otp);
         try {
             emailService.sendOtp(email, otp);
-            return ResponseEntity.ok("If this email is registered, a reset code has been sent.");
+            return ResponseEntity.ok("Reset code sent.");
         } catch (Exception e) {
             log.error("[forgot-password] Email error for {}: {}", email, e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
