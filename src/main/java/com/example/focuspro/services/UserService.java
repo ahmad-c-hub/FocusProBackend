@@ -93,10 +93,16 @@ public class UserService {
         if (password == null) {
             throw new IllegalArgumentException("Password cannot be empty");
         }
-        // Block Google-authenticated accounts from the password login endpoint.
-        // Their password column holds an unusable random BCrypt hash — they must use Google Sign-In.
+
         Optional<Users> existingUser = userRepository.findByUsername(username);
-        if (existingUser.isPresent() && existingUser.get().isGoogleUser()) {
+
+        if (existingUser.isEmpty()) {
+            throw new IllegalArgumentException("No account found with that username.");
+        }
+
+        Users found = existingUser.get();
+
+        if (found.isGoogleUser()) {
             throw new IllegalArgumentException("This account uses Google Sign-In. Please log in with Google.");
         }
 
@@ -104,16 +110,17 @@ public class UserService {
             Authentication authentication = authenticationManager
                     .authenticate(new UsernamePasswordAuthenticationToken(username, password));
             if (authentication.isAuthenticated()) {
-                Users user = userRepository.findByUsername(username).get();
-                user.setLastLogin(java.time.OffsetDateTime.now());
-                userRepository.save(user);
-                activityLogService.log(user.getId(), "LOGIN", "User logged in");
+                found.setLastLogin(java.time.OffsetDateTime.now());
+                userRepository.save(found);
+                activityLogService.log(found.getId(), "LOGIN", "User logged in");
                 return jwtService.generateToken(username);
             } else {
-                throw new IllegalArgumentException("Incorrect username or password");
+                throw new IllegalArgumentException("Incorrect password.");
             }
         } catch (AuthenticationException e) {
-            throw new IllegalArgumentException(e);
+            // Wrap with a plain string so getMessage() returns the human-readable message,
+            // not the full BadCredentialsException toString().
+            throw new IllegalArgumentException("Incorrect password.");
         }
     }
 
@@ -244,6 +251,23 @@ public class UserService {
 
     public boolean emailExists(String email) {
         return userRepository.findByEmail(email.trim().toLowerCase()).isPresent();
+    }
+
+    public void validateForgotPassword(String username, String email) {
+        if (username == null || username.isBlank())
+            throw new IllegalArgumentException("Username cannot be empty.");
+        if (email == null || email.isBlank())
+            throw new IllegalArgumentException("Email cannot be empty.");
+
+        Optional<Users> optionalUser = userRepository.findByUsername(username.trim());
+        if (optionalUser.isEmpty())
+            throw new IllegalArgumentException("No account found with that username.");
+
+        Users user = optionalUser.get();
+        if (!user.getEmail().equalsIgnoreCase(email.trim()))
+            throw new IllegalArgumentException("The email address does not match this account.");
+        if (user.isGoogleUser())
+            throw new IllegalArgumentException("This account uses Google Sign-In and cannot use password reset.");
     }
 
     public void resetPassword(String email, String newPassword) {
