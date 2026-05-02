@@ -2,6 +2,7 @@ package com.example.focuspro.controllers;
 
 import com.example.focuspro.dtos.ChangePasswordRequest;
 import com.example.focuspro.dtos.CompleteProfileRequest;
+import com.example.focuspro.dtos.ResetPasswordRequest;
 import com.example.focuspro.dtos.UpdateProfileRequest;
 import com.example.focuspro.entities.Users;
 import com.example.focuspro.services.EmailService;
@@ -61,6 +62,22 @@ public class UserController {
     public String logout(HttpServletRequest request) {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return userService.logout(request, userNavigating);
+    }
+
+    // ── Sign-up pre-validation ────────────────────────────────────────────────
+
+    /**
+     * Called before OTP is sent so the user sees username/email errors immediately
+     * rather than after entering their verification code.
+     */
+    @PostMapping("/validate-signup")
+    public ResponseEntity<String> validateSignup(@RequestBody Map<String, String> body) {
+        try {
+            userService.validateSignup(body.get("username"), body.get("email"));
+            return ResponseEntity.ok("Valid");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     // ── OTP Email Verification ────────────────────────────────────────────────
@@ -139,8 +156,57 @@ public class UserController {
     @DeleteMapping("/account")
     public ResponseEntity<String> deleteAccount() {
         Users userNavigating = (Users) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        userService.deleteAccount(userNavigating);
-        return ResponseEntity.ok("Account deleted.");
+        try {
+            userService.deleteAccount(userNavigating);
+            return ResponseEntity.ok("Account deleted.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // ── Forgot Password ───────────────────────────────────────────────────────
+
+    /**
+     * Step 1: User submits their email. If registered, generate an OTP and email it.
+     * Always returns 200 to avoid leaking whether an email is registered.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body("Email is required.");
+        }
+        if (!userService.emailExists(email)) {
+            return ResponseEntity.ok("If this email is registered, a reset code has been sent.");
+        }
+        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+        otpStore.store(email, otp);
+        try {
+            emailService.sendOtp(email, otp);
+            return ResponseEntity.ok("If this email is registered, a reset code has been sent.");
+        } catch (Exception e) {
+            log.error("[forgot-password] Email error for {}: {}", email, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to send reset email: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Step 3: After OTP is verified, set the new password.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestBody ResetPasswordRequest request) {
+        if (!otpStore.isVerified(request.getEmail())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Email not verified. Please verify your OTP first.");
+        }
+        try {
+            userService.resetPassword(request.getEmail(), request.getNewPassword());
+            otpStore.clearVerified(request.getEmail());
+            return ResponseEntity.ok("Password reset successfully.");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     // ── OAuth Code Exchange ───────────────────────────────────────────────────

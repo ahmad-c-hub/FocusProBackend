@@ -2,8 +2,10 @@ package com.example.focuspro.repos;
 
 import com.example.focuspro.entities.GameResult;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,4 +33,9 @@ public interface GameResultRepo extends JpaRepository<GameResult, Long> {
     /** Sum of timePlayedSeconds for all game sessions today. */
     @Query("SELECT COALESCE(SUM(r.timePlayedSeconds), 0) FROM GameResult r WHERE r.userId = :userId AND r.playedAt >= :startOfDay")
     int sumTimePlayedSecondsByUserIdToday(@Param("userId") int userId, @Param("startOfDay") LocalDateTime startOfDay);
+
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM GameResult r WHERE r.userId = :userId")
+    void deleteByUserId(@Param("userId") int userId);
 }

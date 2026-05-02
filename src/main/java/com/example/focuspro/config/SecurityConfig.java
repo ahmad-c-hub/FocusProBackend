@@ -46,6 +46,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/user/login", "/user/register", "/user/logout",
                                 "/user/oauth/token", "/user/send-otp", "/user/verify-otp",
+                                "/user/validate-signup",
+                                "/user/forgot-password", "/user/reset-password",
                                 "/oauth2/**", "/error")
                         .permitAll()
                         // ── NEW: allow WebSocket upgrade handshake ──────────────────

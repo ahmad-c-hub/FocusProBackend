@@ -5,10 +5,7 @@ import com.example.focuspro.dtos.CompleteProfileRequest;
 import com.example.focuspro.dtos.UpdateProfileRequest;
 import com.example.focuspro.entities.Role;
 import com.example.focuspro.entities.Users;
-import com.example.focuspro.repos.RoleRepo;
-import com.example.focuspro.repos.UserRepo;
-
-import javax.crypto.IllegalBlockSizeException;
+import com.example.focuspro.repos.*;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Date;
@@ -19,6 +16,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -42,6 +40,26 @@ public class UserService {
 
     @Autowired
     private ActivityLogService activityLogService;
+
+    @Autowired private ActivityLogRepo activityLogRepo;
+    @Autowired private AiGeneratedQuestionRepo aiGeneratedQuestionRepo;
+    @Autowired private AppScreenEventRepo appScreenEventRepo;
+    @Autowired private CoachingSessionRepo coachingSessionRepo;
+    @Autowired private DailyAppUsageRepo dailyAppUsageRepo;
+    @Autowired private DailyChallengeRepo dailyChallengeRepo;
+    @Autowired private DailyGameScoreRepo dailyGameScoreRepo;
+    @Autowired private DailyGoalRepo dailyGoalRepo;
+    @Autowired private DailyScoreRepo dailyScoreRepo;
+    @Autowired private FocusScheduleRepo focusScheduleRepo;
+    @Autowired private GameLevelProgressRepo gameLevelProgressRepo;
+    @Autowired private GameResultRepo gameResultRepo;
+    @Autowired private GoalNotificationRepo goalNotificationRepo;
+    @Autowired private HabitLogRepo habitLogRepo;
+    @Autowired private HabitRepo habitRepo;
+    @Autowired private LockInSessionRepo lockInSessionRepo;
+    @Autowired private RoomMessageRepository roomMessageRepository;
+    @Autowired private UserQuestionRepo userQuestionRepo;
+    @Autowired private WebPushSubscriptionRepo webPushSubscriptionRepo;
 
     public String register(Users user) {
         if (user.getUsername() == null || user.getEmail() == null || user.getPassword() == null
@@ -80,9 +98,6 @@ public class UserService {
         Optional<Users> existingUser = userRepository.findByUsername(username);
         if (existingUser.isPresent() && existingUser.get().isGoogleUser()) {
             throw new IllegalArgumentException("This account uses Google Sign-In. Please log in with Google.");
-        }
-        if (existingUser.isPresent() && existingUser.get().getDeletedAt() != null) {
-            throw new IllegalArgumentException("This account has been deleted.");
         }
 
         try {
@@ -185,17 +200,64 @@ public class UserService {
         activityLogService.log(user.getId(), "PASSWORD_CHANGE", "User changed their password");
     }
 
+    @Transactional
     public void deleteAccount(Users userNavigating) {
         Optional<Users> optionalUser = userRepository.findByUsername(userNavigating.getUsername());
         if (optionalUser.isEmpty()) throw new IllegalArgumentException("User not found.");
-        Users user = optionalUser.get();
-        // Soft-delete: mark as deleted so FK constraints are preserved
-        user.setDeletedAt(java.time.OffsetDateTime.now());
-        userRepository.save(user);
-        activityLogService.log(user.getId(), "ACCOUNT_DELETE", "User deleted their account");
+        int userId = optionalUser.get().getId();
+
+        // Delete child records in dependency order before removing the user row.
+        // HabitLog before Habit (habit_id FK); GoalNotification before DailyGoal (goal_id FK).
+        habitLogRepo.deleteByUserId(userId);
+        goalNotificationRepo.deleteByUserId(userId);
+        webPushSubscriptionRepo.deleteByUserId(userId);
+        activityLogRepo.deleteByUserId(userId);
+        aiGeneratedQuestionRepo.deleteByUserId(userId);
+        appScreenEventRepo.deleteByUserId(userId);
+        coachingSessionRepo.deleteByUserId(userId);
+        dailyAppUsageRepo.deleteByUserId(userId);
+        dailyChallengeRepo.deleteByUserId(userId);
+        dailyGameScoreRepo.deleteByUserId(userId);
+        dailyGoalRepo.deleteByUserId(userId);
+        dailyScoreRepo.deleteByUserId(userId);
+        focusScheduleRepo.deleteByUserId(userId);
+        gameLevelProgressRepo.deleteByUserId(userId);
+        gameResultRepo.deleteByUserId(userId);
+        habitRepo.deleteByUserId(userId);
+        lockInSessionRepo.deleteByUserId(userId);
+        roomMessageRepository.deleteByUserId(userId);
+        userQuestionRepo.deleteByUserId(userId);
+
+        userRepository.deleteById(userId);
+    }
+
+    public void validateSignup(String username, String email) {
+        if (username == null || username.isBlank())
+            throw new IllegalArgumentException("Username cannot be empty");
+        if (email == null || email.isBlank())
+            throw new IllegalArgumentException("Email cannot be empty");
+        if (userRepository.findByUsername(username.trim()).isPresent())
+            throw new IllegalArgumentException("Username not available");
+        if (userRepository.findByEmail(email.trim().toLowerCase()).isPresent())
+            throw new IllegalArgumentException("Email already registered");
     }
 
     public boolean emailExists(String email) {
         return userRepository.findByEmail(email.trim().toLowerCase()).isPresent();
+    }
+
+    public void resetPassword(String email, String newPassword) {
+        if (email == null || email.isBlank()) throw new IllegalArgumentException("Email is required.");
+        if (newPassword == null || newPassword.length() < 8)
+            throw new IllegalArgumentException("Password must be at least 8 characters.");
+        Optional<Users> optionalUser = userRepository.findByEmail(email.trim().toLowerCase());
+        if (optionalUser.isEmpty()) throw new IllegalArgumentException("No account found with that email.");
+        Users user = optionalUser.get();
+        if (user.isGoogleUser())
+            throw new IllegalArgumentException("This account uses Google Sign-In and cannot use password reset.");
+        user.setPassword(bCryptPasswordEncoder.encode(newPassword));
+        user.setUpdatedAt(java.time.OffsetDateTime.now());
+        userRepository.save(user);
+        activityLogService.log(user.getId(), "PASSWORD_RESET", "User reset their password via OTP");
     }
 }

@@ -2,9 +2,11 @@ package com.example.focuspro.repos;
 
 import com.example.focuspro.entities.AiGeneratedQuestion;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -27,4 +29,9 @@ public interface AiGeneratedQuestionRepo extends JpaRepository<AiGeneratedQuesti
     @Query("SELECT COUNT(DISTINCT q.snippetId) FROM AiGeneratedQuestion q " +
            "WHERE q.userId = :userId AND q.questionType = 'SNIPPET'")
     long countDistinctSnippetsQuizzed(@Param("userId") Integer userId);
+
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM AiGeneratedQuestion q WHERE q.userId = :userId")
+    void deleteByUserId(@Param("userId") Integer userId);
 }
