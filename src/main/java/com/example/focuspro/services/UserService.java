@@ -58,7 +58,6 @@ public class UserService {
     @Autowired private HabitRepo habitRepo;
     @Autowired private LockInSessionRepo lockInSessionRepo;
     @Autowired private RoomMessageRepository roomMessageRepository;
-    @Autowired private UserQuestionRepo userQuestionRepo;
     @Autowired private WebPushSubscriptionRepo webPushSubscriptionRepo;
 
     public String register(Users user) {
@@ -233,7 +232,6 @@ public class UserService {
         habitRepo.deleteByUserId(userId);
         lockInSessionRepo.deleteByUserId(userId);
         roomMessageRepository.deleteByUserId(userId);
-        userQuestionRepo.deleteByUserId(userId);
 
         userRepository.deleteById(userId);
     }
