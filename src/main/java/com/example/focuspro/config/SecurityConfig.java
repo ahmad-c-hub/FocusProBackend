@@ -44,7 +44,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(request -> request
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/user/login", "/user/register", "/user/logout",
+                        .requestMatchers("/health",
+                                "/user/login", "/user/register", "/user/logout",
                                 "/user/oauth/token", "/user/send-otp", "/user/verify-otp",
                                 "/user/validate-signup",
                                 "/user/forgot-password", "/user/reset-password",
