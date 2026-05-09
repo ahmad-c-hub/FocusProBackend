@@ -38,4 +38,5 @@
     <include file="changes/031-add-screen-penalty-to-daily-scores.xml" relativeToChangelogFile="true"/>
     <include file="changes/032-create-tts-cache-table.xml"            relativeToChangelogFile="true"/>
     <include file="changes/033-seed-pattern-trail-game.xml"            relativeToChangelogFile="true"/>
+    <include file="changes/034-merge-diagnostic-q5-q6.xml"            relativeToChangelogFile="true"/>
 </databaseChangeLog>

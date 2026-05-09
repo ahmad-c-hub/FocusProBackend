@@ -33,16 +33,18 @@ public class DiagnosticService {
 
     public List<DiagnosticQuestionDTO> getAllQuestions() {
         List<DiagnosticQuestion> questions = diagnosticQuestionRepo.findAllByOrderByDisplayOrderAsc();
-        return questions.stream().map(q -> new DiagnosticQuestionDTO(
-                q.getId(),
-                q.getQuestionText(),
-                q.getOptionA(),
-                q.getOptionB(),
-                q.getOptionC(),
-                q.getOptionD(),
-                q.getDimension(),
-                q.getDisplayOrder()
-        )).toList();
+        return questions.stream()
+                .filter(q -> q.getDisplayOrder() > 0)
+                .map(q -> new DiagnosticQuestionDTO(
+                        q.getId(),
+                        q.getQuestionText(),
+                        q.getOptionA(),
+                        q.getOptionB(),
+                        q.getOptionC(),
+                        q.getOptionD(),
+                        q.getDimension(),
+                        q.getDisplayOrder()
+                )).toList();
     }
 
 
@@ -71,6 +73,7 @@ public class DiagnosticService {
             }
         }
 
+        // rawTotal max = 59: screen(16) + attention(25: merged-Q5 max 10 + Q7+Q8+Q9 max 15) + lifestyle(9) + learning(9)
         double rawTotal   = screenRaw + attentionRaw + lifestyleRaw + learningRaw;
         double focusScore = Math.round(40 + (rawTotal / 59.0) * 60);
 
