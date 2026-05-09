@@ -28,8 +28,7 @@
 
         <!-- Update Q5 to merged reading + working-memory task -->
         <update tableName="diagnostic_question">
-            <column name="question_text"
-                    value="Combined reading and working memory assessment — read the passage carefully, tap each time you re-read a sentence, then answer the 3 questions that follow."/>
+            <column name="question_text" value="Reading Comprehension Task"/>
             <column name="option_a" value="Excellent comprehension and minimal re-reads"/>
             <column name="option_b" value="Good comprehension with some re-reads"/>
             <column name="option_c" value="Fair comprehension with several re-reads"/>
